@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projects</title>
+    <link href="../css/projects.css" rel="stylesheet">
+</head>
+
+<body id="layout">
+    <aside id="sidebar">
+        <h2 id="app-title">ScriptFlow</h2>
+        <nav>
+            <ul class="sidebar-nav">
+                <li class="activated">Projects</li>
+                <li>Statistics</li>
+                <li>Settings</li>
+            </ul>
+        </nav>
+
+        <hr class="sidebar-separator" />
+
+        <div id="korisnik" class="user-profile">
+            <div id="krug" class="avatar">U</div>
+            <div class="user-info">
+                <p class="user-name">Alex Writer</p>
+                <p class="user-status">Pro Member</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="content">
+        <header class="main-header">
+            <h1>Your Scripts</h1>
+            <form class="actions">
+                <input type="text" placeholder="Search">
+                <button type="button" class="new-project-btn">+ New Project</button>
+            </form>
+        </header>
+
+        <section class="projects-grid">
+            <!-- Kartica 1 -->
+            <article class="project-card active">
+                <div class="active-badge">Aktivan</div>
+                <h2 class="project-title">KRIMI SCENARIJ 01</h2>
+                <p class="project-desc">Krimi / Dugometražni film</p>
+
+                <div class="project-meta">
+                    <p><strong>Status:</strong> Druga verzija</p>
+                    <p><strong>Broj stranica:</strong> 76</p>
+                    <p><strong>Vrijeme posljednje izmjene:</strong> 28. okt 2025.</p>
+                </div>
+            </article>
+
+            <!-- Kartica 2 -->
+            <article class="project-card">
+                <h2 class="project-title">DOKU-SERIJA PILOT</h2>
+                <p class="project-desc">Dokumentarni / Serija</p>
+
+                <div class="project-meta">
+                    <p><strong>Status:</strong> Outline završen</p>
+                    <p><strong>Broj stranica:</strong> 12</p>
+                    <p><strong>Vrijeme posljednje izmjene:</strong> 15. okt 2025.</p>
+                </div>
+            </article>
+
+            <!-- Kartica 3 -->
+            <article class="project-card">
+                <h2 class="project-title">REKLAMA ZA KLIJENTA X</h2>
+                <p class="project-desc">Reklama / TV</p>
+
+                <div class="project-meta">
+                    <p><strong>Status:</strong> Finalna verzija</p>
+                    <p><strong>Broj stranica:</strong> 4</p>
+                    <p><strong>Vrijeme posljednje izmjene:</strong> 2. nov 2025.</p>
+                </div>
+            </article>
+
+            <!-- POSLJEDNJA KARTICA: Kreiraj novi scenarij -->
+            <article class="project-card create-new">
+                <button type="button" class="create-btn">+</button>
+                <p>Kreiraj novi scenarij</p>
+            </article>
+        </section>
+    </main>
+</body>
+
+</html>

@@ -1,89 +1,229 @@
-html,body{
+html,
+body {
     background-color: #f5f6fa;
     font-family: "Poppins", "Inter", sans-serif;
-    height:100%;
-}
-*,*::before,*::after{
-    box-sizing: border-box;
+    height: 100%;
+    font-size:100%;
 }
 
-#layout{
-    display:flex;
-    min-height:100%;
+*,
+*::before,
+*::after { box-sizing: border-box; }
 
+p { margin: 0.3rem 0; }
+
+.user-info>p:last-child { font-size: 0.8rem; color: #989898; }
+
+/*  LAYOUT  */
+#layout {
+    display: flex;                 /* sidebar lijevo, content desno */
+    min-height: 100%;
 }
-#app-title{
-    color:#5B43F0;
-}
 
-
-#sidebar{
-    width:250px;
+/* sidebar fiksne širine */
+#sidebar {
+    width: 250px;
     background-color: #f8f9fb;
-    
+    flex: 0 0 250px;
 }
-.sidebar-nav{
-    display:flex;
+
+/* content zauzima ostatak */
+#content {
+    flex: 1;
+    padding: 2rem 2.5rem;
+    background: #e6e6e8;
+}
+
+/*  SIDEBAR  */
+#app-title { color: #5B43F0; margin-left: 1.2rem; }
+
+a { text-decoration: none; color: inherit; }
+
+.sidebar-nav {
+    display: flex;
     flex-direction: column;
     list-style-type: none;
     padding-left: 0;
-    margin:0 1.5rem;
-    
-}
-.sidebar-nav >li{
-    height:2rem;
-    color:#555B6D;
-    
+    margin: 0 1.5rem;
+    gap: .5rem;
 }
 
-.user-profile{
-    margin-left: 1rem;
-    display:flex;
-    align-items: baseline;
-    gap:1.5rem
+hr {
+    border: none;
+    height: 1px;
+    background-color: #b0b1b4;
+    margin: 1rem 1.5rem;
 }
-.activated{
+
+.sidebar-nav>li {
+    height: 3.5rem;
+    color: #555B6D;
+    border-radius: 10%;
+    transition: background-color .2s ease, color .2s ease;
+}
+
+.sidebar-nav>li > a{
+    height:100%;
+    display:flex;
+    gap:.7rem;
+    align-items:center;
+    padding-left:.7rem;
+}
+
+/* AKTIVNA stavka */
+.activated {
     background-color: #EEF1FF;
-   border-radius: 10%;
- color: #5B43F0!important; 
+    border-radius: 10%;
+    font-weight: bold;
+    color: #5B43F0!important;
 }
+
+/* HOVER po specifikaciji: druga nijansa od aktivne, isti “chip” izgled */
+.sidebar-nav>li:not(.activated):hover{
+    background-color: #F3F5FF;     /* drugačija nijansa od #EEF1FF */
+    color: #5B43F0;
+}
+
+/* Profil */
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    background-color: #f3f4f6c0;
+    margin: 0 2.2rem;
+}
+
 .avatar {
-  width: 2rem;            
-  height: 2rem;
-  border-radius: 50%;      
-  background-color: #333333;
-  color: #ffffff;          
-  display: flex;            
-  align-items: center;     
-  justify-content: center;  
-  font-weight: bold;
- 
+    width: 2rem; height: 2rem; border-radius: 50%;
+    background-color: #333333; color: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold;
 }
 
-
-#content{
-    flex:1;
-    
+/*HEADER (u mainu)  */
+.main-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
+.main-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+.actions {
+  margin-left: auto;
+  display: flex; align-items: center; gap: .75rem;
+}
+.actions input[type="text"]{
+  width: 220px; height: 36px; padding: 0 12px;
+  border: 1px solid #e5e7eb; border-radius: 10px;
+  background: #fff; font-size: .95rem; outline: none;
+}
+.actions input[type="text"]::placeholder{ color:#9ca3af; }
+.actions .new-project-btn{
+  height: 2.4rem; padding: 0 0.9rem; border: none; border-radius: 10px;
+  background: #5B3FFF; color:#fff; font-weight:600; cursor:pointer;
+  transition: background-color .2s ease, filter .2s ease;
+}
+/* HOVER dugmeta: tamnija nijansa */
+.actions .new-project-btn:hover{ background:#4D30FF; }
 
+/* GRID KARTICA  */
 .projects-grid{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:50px;
-    
+  display: grid;
+  grid-template-columns: 1fr 1fr;   /* 2 kolone desktop */
+  gap: 24px;
 }
-.activeflex{
-    display:flex;
-    align-items: baseline;
-    
+
+/* Kartica – osnovno */
+.project-card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:16px 18px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+  transition: box-shadow .2s ease; /* za hover sjenu */
 }
+/* HOVER kartice – po specifikaciji: 0 2px 8px @ 5% */
+.project-card:hover{
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.project-title{
+  text-transform: uppercase;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color:#0f172a;
+  margin: 0 0 4px 0;
+}
+.project-desc{
+  color:#6b7280;
+  margin: 0 0 14px 0;              /* veći razmak do status bloka */
+}
+.project-meta{ margin-top:4px; line-height:1.5; }
+.project-meta p{ margin:2px 0; color:#374151; }
+.project-meta p strong{ font-weight:700; }
+
+/* Aktivan scenarij */
+.project-card.active{
+  border:2px solid #5B43F0;
+  box-shadow: 0 6px 18px rgba(91,67,240,0.18);
+}
+.activeflex{ display:flex; align-items:baseline; gap:10px;}
 .active-badge{
-margin-left: auto;
+  margin-left:auto; font-size:.75rem; padding:3px 8px;
+  background:#EEF1FF; color:#5B43F0;
+  border-radius:1000px; border:1px solid #dfe3ff;
 }
-.main-header{
-    display:flex;
-    align-items: baseline;
+
+/* “Kreiraj novi” kartica (uvijek posljednja) */
+.project-card.create-new{
+  display:flex; flex-direction:column; justify-content: center; align-items:center;text-align:center;
+  background:#f8fafc; border:2px dashed #cbd5e1; box-shadow:none;
 }
-.actions{
-    margin-left: auto;
+.create-new p{ color:#64748b; margin-top:10px; font-weight:500; }
+.create-btn{
+  width:44px; height:44px; border-radius:50%;
+  border:1px solid #cbd5e1; background:#fff;
+  font-size:22px; line-height:1; cursor:pointer;
+}
+.create-btn:hover{ background:#f1f5f9; }
+
+
+/* 1 kolona grida ispod 750px + sidebar ide IZNAD sadržaja */
+@media (max-width: 750px){
+  #layout{
+    flex-direction: column; 
+    align-items: center;     /* sidebar iznad, content ispod */
+  }
+  .user-profile{
+    justify-content: center;
+  }
+  .sidebar-nav>li>a{
+    justify-content: center;
+  }
+  #sidebar{
+    width: 100%;
+    
+  }
+  .projects-grid{
+    grid-template-columns: 1fr;  /* jedna kolona na mobilnim */
+  }
+  html{
+    font-size: 80%;
+  }
+  .main-header{
+    flex-direction: column;
+    
+  }
+  .main-header >form{
+margin-left:0px;
+  }
+  .actions{
+    gap:5rem;
+  }
+
 }

@@ -1,6 +1,10 @@
 html,body{
-    background-color: #f8f9fb;
+    background-color: #f5f6fa;
+    font-family: "Poppins", "Inter", sans-serif;
     height:100%;
+}
+*,*::before,*::after{
+    box-sizing: border-box;
 }
 
 #layout{
@@ -8,18 +12,78 @@ html,body{
     min-height:100%;
 
 }
+#app-title{
+    color:#5B43F0;
+}
+
 
 #sidebar{
     width:250px;
+    background-color: #f8f9fb;
+    
+}
+.sidebar-nav{
+    display:flex;
+    flex-direction: column;
+    list-style-type: none;
+    padding-left: 0;
+    margin:0 1.5rem;
+    
+}
+.sidebar-nav >li{
+    height:2rem;
+    color:#555B6D;
     
 }
 
+.user-profile{
+    margin-left: 1rem;
+    display:flex;
+    align-items: baseline;
+    gap:1.5rem
+}
+.activated{
+    background-color: #EEF1FF;
+   border-radius: 10%;
+ color: #5B43F0!important; 
+}
+.avatar {
+  width: 2rem;            
+  height: 2rem;
+  border-radius: 50%;      
+  background-color: #333333;
+  color: #ffffff;          
+  display: flex;            
+  align-items: center;     
+  justify-content: center;  
+  font-weight: bold;
+ 
+}
+
+
 #content{
     flex:1;
+    
 }
 
 .projects-grid{
     display:grid;
     grid-template-columns:1fr 1fr;
+    gap:50px;
     
+}
+.activeflex{
+    display:flex;
+    align-items: baseline;
+    
+}
+.active-badge{
+margin-left: auto;
+}
+.main-header{
+    display:flex;
+    align-items: baseline;
+}
+.actions{
+    margin-left: auto;
 }

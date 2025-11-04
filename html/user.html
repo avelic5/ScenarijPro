@@ -1,39 +1,93 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bs">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <style>.arrow-btn {
-  width: 40px;
-  height: 40px;
-  background-color: #5B43F0;
-  border: none;
-  border-radius: 50%;
-  position: relative;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.arrow-btn::before {
-  content: "";
-  position: absolute;
-  left: 14px;
-  top: 11px;
-  width: 10px;
-  height: 10px;
-  border-top: 3px solid white;
-  border-right: 3px solid white;
-  transform: rotate(45deg);
-}
-
-.arrow-btn:hover {
-  background-color: #4332b5;
-}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Postavke korisničkog računa</title>
+  <link rel="stylesheet" href="../css/user.css" />
 </head>
 <body>
-    <button class="arrow-btn"></button>
+
+  <main class="page">
+    <form class="card" novalidate> <!--bez validacije-->
+      <header class="card-header">
+        <h1>Postavke korisničkog računa</h1>
+        <hr class="rule" />
+        <p class="subtitle"><em>Upravljajte vašim korisničkim računom, sigurnosnim postavkama i notifikacijama.</em></p>
+      </header>
+
+      <!-- Podaci o korisničkom racunu -->
+      <section class="section section--info">
+        <h2 class="section-title">Podaci o korisničkom računu</h2>
+
+        <div class="field">
+          <label for="fullName">Ime i prezime</label>
+          <input id="fullName" name="fullName" type="text" placeholder="Aldin Velic" required />
+        </div>
+
+        <div class="field">
+          <label for="email">Email adresa</label>
+          <input id="email" name="email" type="email" placeholder="velic_aldin@example.com" required />
+        </div>
+
+        <div class="field">
+          <label for="perPage">Broj elemenata po stranici (1–100)</label>
+          <input id="perPage" name="perPage" type="number" inputmode="numeric" min="1" max="100" step="1" placeholder="25" />
+        </div>
+      </section>
+
+      <!-- Sigurnost -->
+      <section class="section section--security">
+        <h2 class="section-title">Sigurnosne postavke</h2>
+
+        <div class="field">
+          <label for="newPassword">Nova šifra</label>
+          <input id="newPassword" name="newPassword" type="password" placeholder="********" />
+          <small class="hint">Ostavite prazno da zadržite postojeću šifru.</small>
+        </div>
+
+        <div class="field field--checkbox">
+          <input id="twofa" name="twofa" type="checkbox" />
+          <label for="twofa">Omogući Two-Factor Authentication (2FA)</label>
+        </div>
+      </section>
+
+      <!-- Notifikacije -->
+      <section class="section section--notifications">
+        <h2 class="section-title">Notifikacije</h2>
+
+        <fieldset class="fieldset"> <!--nesto sto ide zajedno-->
+          <legend>Preferirani način komunikacije</legend>
+          <label class="radio"> <!--label mogu pisati i ovako bez for i id atributa potrebnih-->
+            <input type="radio" name="contact" value="email" checked />
+            <span>Email</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="contact" value="sms" />
+            <span>SMS (tekst)</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="contact" value="none" />
+            <span>None</span>
+          </label>
+        </fieldset>
+
+        <div class="field">
+          <label for="freq">Notification frequency</label>
+          <select id="freq" name="freq">
+            <option value="daily" selected>Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="never">Never</option>
+          </select>
+        </div>
+      </section>
+
+      <footer class="card-footer">
+        <button type="submit" class="primary">Spasi promjene</button>
+      </footer>
+    </form>
+  </main>
 
 </body>
 </html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>.arrow-btn {
+  width: 40px;
+  height: 40px;
+  background-color: #5B43F0;
+  border: none;
+  border-radius: 50%;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.arrow-btn::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 11px;
+  width: 10px;
+  height: 10px;
+  border-top: 3px solid white;
+  border-right: 3px solid white;
+  transform: rotate(45deg);
+}
+
+.arrow-btn:hover {
+  background-color: #4332b5;
+}
+</style>
+</head>
+<body>
+    <button class="arrow-btn"></button>
+
+</body>
+</html>

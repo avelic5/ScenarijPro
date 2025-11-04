@@ -1,0 +1,198 @@
+/* Varijable smještene u pseudoklasu root */
+:root{
+  --brand:#5B3FFF;
+  --brand-100:#E9EEFF;
+  --text:#333;
+  --muted:#555B6D;
+  --paper:#fff;
+  --header-bg:#fff;
+  --btn-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  --leters:#f5f5ff;
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ height:100%; font-size:100%; }
+body{
+  margin:0;
+  background:#f5f6fa;
+  color:var(--text);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+
+}
+
+/* Zaglavlje */
+.app-header{
+  position: sticky;
+  top:0;
+ z-index:50;
+  display:grid;
+  grid-template-columns: 1fr auto 1fr; /*auto ovdje igra ulogu kao content-size*/
+  align-items:center;
+  gap:1rem;
+  padding: .75rem 1rem;
+  height:10vh;
+  background: var(--header-bg);
+  border-bottom: 1px solid #e9e9ee;
+}
+
+.header-left{
+  display:flex;
+  align-items:center;
+  min-width: fit-content;
+  gap:.75rem; 
+  min-width:0; /* da title može skraćivati, inace je najmanja content-size */
+}
+.project-title{
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin:0;
+}
+
+.back-btn{
+  display:inline-flex; 
+  align-items:center; 
+  justify-content:center;
+  width:40px; 
+  height:40px;
+  margin-right:5px; 
+  border-radius:50%;
+  background: var(--brand);
+  
+  border:none; 
+  cursor:pointer;
+  box-shadow: var(--btn-shadow);
+}
+
+.header-center{ /*ovo je za buttone u sredini*/
+  display:flex; 
+  justify-content:center; 
+  align-items:center;
+  gap:.5rem;
+  flex-wrap: wrap; /* prelamanje u 2 reda na manjim ekranima */
+}
+.mode-btn{
+  text-transform: uppercase;
+  font-size: .85rem;
+  background:var(--letters); 
+  font-weight:900;
+  color:#989898;
+  border:none; border-radius: 9999px;
+  padding:.5rem .9rem;
+  cursor:pointer;
+  box-shadow: var(--btn-shadow);
+  transition: background-color .15s ease;
+}
+.mode-btn:hover{ background:#f0f0f0; } /* zahtjevana boja na hover */
+
+.header-right{ display:flex; justify-content:flex-end; }
+.save-btn{
+  text-transform: uppercase;
+  font-weight: 600;
+  background:#28a745; color:#fff;
+  border:none; border-radius: 10px;
+  padding:.55rem 1rem; cursor:pointer;
+  box-shadow: var(--btn-shadow);
+  transition: background-color .2s ease; /* 0.2s kako je traženo */
+}
+.save-btn:hover{ background:#218838; }
+
+/* ===== Layout ===== */
+.layout{
+  display:flex;
+  align-items: flex-start;
+  
+  gap:1rem;
+  padding: 1rem;
+}
+
+/* Sidebar */
+.sidebar{
+  width:250px; 
+  flex: 0 0 250px;
+}
+.sidebar-title{
+  font-weight:600;
+  color:var(--muted);
+  margin-bottom:.5rem;
+}
+.sidebar-title .count{ color:#8b90a3; }
+
+.scene-list{
+  list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:.5rem;
+}
+.scene-item{
+  background:#fff;
+  border-radius:12px;
+  padding:.6rem .75rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  border:1px solid #eee;
+}
+.scene-item .scene-main{
+  display:flex; align-items:center; gap:.4rem;
+}
+.scene-no{ font-weight:700; color:#6a6f82; }
+.scene-title{  color:#989898;; font-weight:600; }
+.scene-pages{
+  margin-top:.25rem;
+  font-size:.85rem;
+  color:#8b90a3;
+}
+
+/* Aktivna scena */
+.scene-item.active{
+  position: relative; /*radi pseudo elemenata poslije/prije */
+  background: var(--brand-100);
+  border-color: transparent;
+}
+.scene-item.active::before{
+  content:""; position:absolute; 
+  top:0; right:0; bottom:0; left:0;
+  border-left: 6px solid var(--brand);
+  border-radius:12px;
+}
+
+/* Editor */
+.editor-wrap{ flex:1 1 auto; min-width:0; }
+.editor-paper{
+  background: var(--paper);
+  border-radius: 14px;
+  padding: 2.2rem 2.2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  font-family: "Courier Prime", "Courier New", monospace;
+  line-height: 1.6;
+}
+.editor-paper p{ margin: 0 0 1.5em 0; } /* razmak 1.5em između pasusa */
+
+/* Naslov scene (samo to posebno formatiramo) */
+.scene-heading{
+  color:#D68A00;
+  font-size:130%;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: .03em;
+  margin: 0 0 1.5em 0;
+}
+
+/* ===== Responsivnost ===== */
+@media (max-width: 750px){
+  .layout{
+    flex-direction: column; /* sidebar ide iznad editora */
+  }
+  .sidebar{
+    width:100%;
+    flex-basis:auto;
+  }
+  html{
+    font-size: 80%;
+  }
+  .header-center{
+    max-width: 380px; /* da lakše prelomi u 2 reda */
+    margin: 0 auto;
+  }
+  
+}

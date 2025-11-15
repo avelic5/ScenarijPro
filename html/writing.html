@@ -34,6 +34,37 @@
     </div>
   </header>
 
+
+
+    <!-- TOOLBAR ZA EDITOR -->
+  <div class="editor-toolbar">
+    <!-- formatirajTekst -->
+    <button id="btnBold" class="tool-btn"><b>Bold</b></button>
+    <button id="btnItalic" class="tool-btn"><b>Italic</b></button>
+    <button id="btnUnderline" class="tool-btn"><b>Underline</b></button>
+
+    <!-- ostale metode modula -->
+    <button id="btnBrojRijeci" class="tool-btn secondary">Broj riječi</button>
+    <button id="btnDajUloge" class="tool-btn secondary">Daj uloge</button>
+    <button id="btnPogresnaUloga" class="tool-btn secondary">Pogrešne uloge</button>
+    <button id="btnGrupisiUloge" class="tool-btn secondary">Grupiši uloge</button>
+    <button id="btnScenarijUloge" class="tool-btn secondary">Scenarij uloge</button>
+    <button id="btnBrojLinija" class="tool-btn secondary">Broj linija uloge</button>
+  </div>
+
+  <!-- DIV ZA PORUKE -->
+  <div id="poruke" class="poruke"></div>
+<!-- Modalni input za unos uloge -->
+<div id="input-panel" class="input-panel hidden">
+    <label for="input-tekst">Unesite ime uloge:</label>
+    <input type="text" id="input-tekst" autocomplete="off">
+    <button id="input-potvrdi" class="confirm-btn">Potvrdi</button>
+    <button id="input-zatvori" class="close-btn">Zatvori</button>
+</div>
+
+
+  
+
   <!-- LAYOUT -->
   <div class="layout">
     <!-- Sidebar sa scenama -->
@@ -68,8 +99,9 @@
     </aside>
 
     <!-- Editor -->
+        <!-- Editor -->
     <main class="editor-wrap">
-      <article class="editor-paper">
+      <div id="editor" class="editor-paper" contenteditable="true">
         <header class="scene-heading">EXT. OBALA RIJEKE – DAN</header>
 
         <p>
@@ -81,9 +113,14 @@
           On ne skreće pogled. Tek kad tišina potraje sekundu predugo, izdahne i kaže:
           “Znao sam da ćeš doći.”
         </p>
-      </article>
+      </div>
     </main>
+
   </div>
+
+
+    <script src="../js/EditorTeksta.js"></script>
+  <script src="../js/editor.js"></script>
 
 </body>
 </html>

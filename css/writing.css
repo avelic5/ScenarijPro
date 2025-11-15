@@ -196,3 +196,93 @@ body{
   }
   
 }
+.editor-toolbar{
+  display:flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap:.4rem;
+  padding: .5rem 1rem .25rem 1rem;
+  background: var(--header-bg);
+  border-bottom: 1px solid #e9e9ee;
+}
+
+.tool-btn{
+  text-transform: uppercase;
+  font-size: .75rem;
+  background: var(--letters);
+  color: #555;
+  border: none;
+  border-radius: 9999px;
+  padding: .35rem .8rem;
+  cursor: pointer;
+  box-shadow: var(--btn-shadow);
+}
+.tool-btn.secondary{
+  font-weight: 500;
+  opacity: 0.9;
+}
+.tool-btn:hover{
+  background:#e4e4f5;
+}
+
+#poruke{
+  padding: .35rem 1rem;
+  font-size: .85rem;
+  min-height: 1.2em;
+  color:#444;
+}
+#poruke.error{
+  color:#b3261e;
+}
+#poruke.success{
+  color:#1b5e20;
+}
+.input-panel{
+  margin: 0 auto;
+  margin-top: .4rem;
+  background: #fff;
+  padding: .8rem 1rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+
+.input-panel.hidden{
+  display: none;
+}
+
+.input-panel input{
+  padding: .3rem .5rem;
+  font-size: .85rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.confirm-btn{
+  background: #5b3fff;
+  color: white;
+  border: none;
+  padding: .35rem .7rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.confirm-btn:hover{
+  background:#4a33d1;
+}
+
+.close-btn{
+  background:#aaa;
+  color:white;
+  border:none;
+  padding:.35rem .7rem;
+  border-radius:6px;
+  cursor:pointer;
+}
+.close-btn:hover{
+  background:#888;
+}
+

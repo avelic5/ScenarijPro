@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <title>Test formatirajTekst()</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #editor {
+            border: 1px solid #ccc;
+            padding: 10px;
+            min-height: 150px;
+            white-space: pre-wrap;
+        }
+        #editor:focus {
+            outline: 2px solid #0077ff;
+        }
+        button {
+            padding: 6px 10px;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        #output {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background: #f7f7f7;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Test formatirajTekst()</h2>
+
+<div id="editor" contenteditable="true">
+Označi dio ovog teksta i klikni neko dugme da primijeniš formatiranje.
+Možeš testirati bold, italic i underline.
+</div>
+
+<button onclick="testBold()">Bold</button>
+<button onclick="testItalic()">Italic</button>
+<button onclick="testUnderline()">Underline</button>
+
+<h3>Rezultujući HTML:</h3>
+<div id="output"></div>
+
+<script>
+    const divRef = document.getElementById("editor");
+    const output = document.getElementById("output");
+
+    // === FUNKCIJA formatirajTekst(komanda) ===
+    function formatirajTekst(komanda) {
+
+        let mapaKomandi = {
+            bold: "bold",
+            italic: "italic",
+            underline: "underline"
+        };
+
+        if (!mapaKomandi[komanda]) return false;
+
+        let sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return false;
+
+        let range = sel.getRangeAt(0);
+
+        // ništa selektovano
+        if (range.collapsed) return false;
+
+        // helper za provjeru da li je node unutar editora
+        function jeUnutar(node) {
+            if (!node) return false;
+            return node === divRef || divRef.contains(node);
+        }
+
+        // provjera granica selekcije
+        if (!jeUnutar(range.startContainer) || !jeUnutar(range.endContainer)) {
+            return false;
+        }
+
+        // mora imati fokus da bi execCommand radio
+        divRef.focus();
+
+        document.execCommand(mapaKomandi[komanda], false, null);
+        return true;
+    }
+
+    // === UI funkcije ===
+    function osvjeziOutput() {
+        output.textContent = divRef.innerHTML;
+    }
+
+    function testBold() {
+        formatirajTekst("bold");
+        osvjeziOutput();
+    }
+    function testItalic() {
+        formatirajTekst("italic");
+        osvjeziOutput();
+    }
+    function testUnderline() {
+        formatirajTekst("underline");
+        osvjeziOutput();
+    }
+</script>
+
+</body>
+</html>

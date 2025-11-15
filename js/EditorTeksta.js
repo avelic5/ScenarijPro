@@ -125,6 +125,7 @@ function jePraznaLinija(linija) {
 
     let dajUloge = function () {
         let uloge = [];
+        console.log(divRef.innerText);
         let recenice = divRef.innerText.split("\n");
         for(let i=0;i<recenice.length;i++){
             if(jesuLiSpaceIliVelikoSlovo(recenice[i]) && i+1!=recenice.length && !jePraznaLinija(recenice[i+1]) && !jesuLiSpaceIliVelikoSlovo(recenice[i+1])){
@@ -498,12 +499,229 @@ function jeAkcijskiSegment(linija) {
     return rezultat;
 };
 
-    let grupisiUloge = function (){
+    let grupisiUloge = function () {
+    // 1) Pročitamo tekst i podijelimo u linije
+    let text = divRef.innerText;
+    let recenice = text.split("\n");
 
-    }
-    let formatirajTekst = function (komanda){
+    let replike = [];              // svi blokovi govora
+    let trenutnaScena = "";        // tekst naslova scene (ili "" ako nema)
+    let brojacReplikaPoSceni = {}; // scena -> broj replika
 
+    // 2) Prvi prolaz: pronađi sve replike (blokove govora)
+    for (let i = 0; i < recenice.length; i++) {
+        let linija = recenice[i];
+
+        // nova scena?
+        if (jeNaslovScene(linija)) {
+            trenutnaScena = linija.trim();
+            if (brojacReplikaPoSceni[trenutnaScena] === undefined) {
+                brojacReplikaPoSceni[trenutnaScena] = 0;
+            }
+            continue;
+        }
+
+        // početak replike (ime uloge + linije govora)
+        if (jesuLiSpaceIliVelikoSlovo(linija) &&
+            i + 1 < recenice.length &&
+            !jePraznaLinija(recenice[i + 1]) &&
+            !jesuLiSpaceIliVelikoSlovo(recenice[i + 1])) {
+
+            let imeUloge = linija.trim();
+            let linijeReplike = [];
+            let startIndex = i;
+            let lastIndex = i;
+
+            let j = i + 1;
+            while (j < recenice.length) {
+                let l2 = recenice[j];
+
+                if (jeNaslovScene(l2)) break;
+                if (jesuLiSpaceIliVelikoSlovo(l2)) break;
+
+                if (jePraznaLinija(l2)) {
+                    lastIndex = j;
+                    break;
+                }
+
+                if (jeLinijaUZagradama(l2)) {
+                    lastIndex = j;
+                    j++;
+                    continue;
+                }
+
+                // obična linija govora
+                linijeReplike.push(l2);
+                lastIndex = j;
+                j++;
+            }
+
+            // ako nema nijedne linije govora, preskoči (ne formira repliku)
+            if (linijeReplike.length > 0) {
+                if (brojacReplikaPoSceni[trenutnaScena] === undefined) {
+                    brojacReplikaPoSceni[trenutnaScena] = 0;
+                }
+                brojacReplikaPoSceni[trenutnaScena]++;
+
+                replike.push({
+                    scena: trenutnaScena,
+                    uloga: imeUloge,
+                    linije: linijeReplike,
+                    pozicijaUTekstu: brojacReplikaPoSceni[trenutnaScena],
+                    start: startIndex,
+                    end: lastIndex,
+                    segment: 0 // popunjavamo kasnije
+                });
+            }
+
+            i = lastIndex; // preskoči već obrađene linije
+        }
     }
+
+    // nema replika → nema ni grupa
+    if (replike.length === 0) return [];
+
+    // 3) Odredi dijalog-segmente po sceni
+    let sceneImena = [];
+    for (let i = 0; i < replike.length; i++) {
+        if (!provjeraPostojiLi(sceneImena, replike[i].scena)) {
+            sceneImena.push(replike[i].scena);
+        }
+    }
+
+    for (let s = 0; s < sceneImena.length; s++) {
+        let scenaNaziv = sceneImena[s];
+
+        // indeksi replika u ovoj sceni
+        let indeksiScene = [];
+        for (let i = 0; i < replike.length; i++) {
+            if (replike[i].scena === scenaNaziv) {
+                indeksiScene.push(i);
+            }
+        }
+
+        if (indeksiScene.length === 0) continue;
+
+        let segmentBroj = 0;
+
+        for (let k = 0; k < indeksiScene.length; k++) {
+            let idx = indeksiScene[k];
+
+            if (k === 0) {
+                segmentBroj = 1;
+                replike[idx].segment = segmentBroj;
+            } else {
+                let prev = replike[indeksiScene[k - 1]];
+                let cur = replike[idx];
+                let prekid = false;
+
+                // pogledaj linije između dvije replike
+                for (let linIdx = prev.end + 1; linIdx < cur.start; linIdx++) {
+                    let l = recenice[linIdx];
+                    if (jeAkcijskiSegment(l) || jeNaslovScene(l)) {
+                        prekid = true;
+                        break;
+                    }
+                }
+
+                if (prekid) segmentBroj++;
+                replike[idx].segment = segmentBroj;
+            }
+        }
+    }
+
+    // 4) Formiraj grupe uloga po sceni i segmentu (hronološki)
+    let rezultat = [];
+
+    for (let s = 0; s < sceneImena.length; s++) {
+        let scenaNaziv = sceneImena[s];
+
+        // izdvoj replike iz ove scene
+        let indeksiScene = [];
+        for (let i = 0; i < replike.length; i++) {
+            if (replike[i].scena === scenaNaziv) {
+                indeksiScene.push(i);
+            }
+        }
+        if (indeksiScene.length === 0) continue;
+
+        // nađi max segment u ovoj sceni
+        let maxSegment = 0;
+        for (let i = 0; i < indeksiScene.length; i++) {
+            let r = replike[indeksiScene[i]];
+            if (r.segment > maxSegment) maxSegment = r.segment;
+        }
+
+        // za svaki segment u sceni formiraj grupu uloga
+        for (let seg = 1; seg <= maxSegment; seg++) {
+            let ulogeSeg = [];
+
+            for (let i = 0; i < indeksiScene.length; i++) {
+                let r = replike[indeksiScene[i]];
+                if (r.segment === seg) {
+                    let ime = r.uloga;
+                    // dodaj ulogu samo ako je još nema (i zadrži hronološki redoslijed pojave)
+                    if (!provjeraPostojiLi(ulogeSeg, ime)) {
+                        ulogeSeg.push(ime);
+                    }
+                }
+            }
+
+            // ako segment uopće nema replika (može se desiti teoretski) – preskoči
+            if (ulogeSeg.length === 0) continue;
+
+            rezultat.push({
+                scena: scenaNaziv,
+                segment: seg,
+                uloge: ulogeSeg
+            });
+        }
+    }
+
+    return rezultat;
+};
+
+   let formatirajTekst = function (komanda) {
+    // podržane komande
+    let mapaKomandi = {
+        bold: "bold",
+        italic: "italic",
+        underline: "underline"
+    };
+
+    if (!mapaKomandi[komanda]) {
+        return false; // nepoznata komanda
+    }
+
+    let sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return false;
+
+    let range = sel.getRangeAt(0);
+
+    // nema ništa selektovano
+    if (range.collapsed) return false;
+
+    // helper: provjera da li je node unutar editora
+    function jeUnutarEditora(node) {
+        if (!node) return false;
+        return node === divRef || divRef.contains(node);
+    }
+
+    // provjeri da li su i početak i kraj selekcije unutar editora
+    if (!jeUnutarEditora(range.startContainer) || !jeUnutarEditora(range.endContainer)) {
+        return false;
+    }
+
+    // fokus na editor da bi execCommand radio na pravom mjestu, tako radi ta funkcija
+    divRef.focus();
+
+    // primijeni formatiranje preko execCommand
+    // moderne implementacije ne prave nepotrebno ugniježđivanje istog stila
+    document.execCommand(mapaKomandi[komanda], false, null);
+
+    return true;
+};
+
 
 
     return {

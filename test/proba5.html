@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <title>Test scenarijUloge()</title>
+    <style>
+        #editor {
+            border: 1px solid black;
+            padding: 8px;
+            min-height: 180px;
+            white-space: pre-wrap;
+        }
+        #output {
+            border: 1px solid #444;
+            padding: 8px;
+            margin-top: 10px;
+            min-height: 150px;
+            white-space: pre-wrap;
+            background: #f4f4f4;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Testiranje scenarijUloge()</h2>
+
+<div id="editor" contenteditable="true">
+INT. KUHINJA - DAY
+
+MARKO
+Šta ima?
+(uzima šolju)
+Vidimo se.
+
+ANA
+Ništa posebno.
+
+MARKO
+Dobro onda.
+
+EXT. ULICA - NIGHT
+
+ANA
+Gledaj onu kuću.
+
+MARKO
+Vidim je.
+</div>
+
+<br>
+
+Uloga: <input type="text" id="ulogaInput" value="marko">
+<button onclick="testScenarijUloge()">Testiraj scenarijUloge</button>
+
+<h3>Rezultat:</h3>
+<pre id="output"></pre>
+
+<script src="../js/EditorTeksta.js"></script>
+<script>
+    let editor = null;
+
+    window.onload = function () {
+        const div = document.getElementById("editor");
+        editor = EditorTeksta(div);
+    };
+
+    function testScenarijUloge() {
+        const ime = document.getElementById("ulogaInput").value;
+        const rezultat = editor.scenarijUloge(ime);
+
+        document.getElementById("output").textContent =
+            JSON.stringify(rezultat, null, 2);
+
+        console.log("Rezultat scenarijUloge:", rezultat);
+    }
+</script>
+
+</body>
+</html>

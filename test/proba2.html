@@ -3,8 +3,27 @@
 <body>
 
 <div id="editor" contenteditable="true" style="border:1px solid black; padding:5px;">
-    Ovdje piši test tekst \nili ubaci HTML.
-    <b>aaa</b>
+    INT. KUHINJA - DAY
+<br />
+MARKO
+<br />
+Šta ima?
+<br />
+(uzima šolju)
+<br />
+ANA
+<br />
+Ništa posebno.
+<br />
+NARATOR
+<br />
+Marko i Ana sjede za stolom.
+<br />
+EXT. ULICA - NIGHT
+<br />
+ANA
+Gledaj onu kuću.
+
 </div>
 
 <button onclick="test()">Testiraj</button>
@@ -16,7 +35,7 @@
     function test() {
         let div = document.getElementById("editor");
         let editor = EditorTeksta(div);
-        console.log(editor.dajBrojRijeci());
+        console.log(editor.dajUloge());
     }
 </script>
 

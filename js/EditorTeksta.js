@@ -127,9 +127,44 @@ function jePraznaLinija(linija) {
         let uloge = [];
         console.log(divRef.innerText);
         let recenice = divRef.innerText.split("\n");
-        for(let i=0;i<recenice.length;i++){
-            if(jesuLiSpaceIliVelikoSlovo(recenice[i]) && i+1!=recenice.length && !jePraznaLinija(recenice[i+1]) && !jesuLiSpaceIliVelikoSlovo(recenice[i+1])){
-                if(!provjeraPostojiLi(uloge,recenice[i].trim()))uloge.push(recenice[i].trim());
+        for (let i = 0; i < recenice.length; i++) {
+            // trenutna linija potencijalno ime uloge
+            if (jesuLiSpaceIliVelikoSlovo(recenice[i])) {
+                // potrazi prvu nepráznu liniju ispod koja nije samo zagrada
+                let j = i + 1;
+                // preskoci prazne
+                while (j < recenice.length && jePraznaLinija(recenice[j])) j++;
+
+                let imaGovora = false;
+
+                // traži prvi relevantan sadržaj nakon eventualnih zagrada
+                while (j < recenice.length) {
+                    let lin = recenice[j];
+
+                    // ako naletiš na novi naslov scene ili novi red koji izgleda kao uloga -> nema govora
+                    if (jeNaslovScene(lin) || jesuLiSpaceIliVelikoSlovo(lin)) {
+                        break;
+                    }
+
+                    // ako je cijela linija u zagradama, smatra se scenskom napomenom i preskače se
+                    if (jeLinijaUZagradama(lin)) {
+                        j++;
+                        // preskoči eventualne prazne linije nakon zagrade
+                        while (j < recenice.length && jePraznaLinija(recenice[j])) j++;
+                        continue;
+                    }
+
+                    // inače imamo stvarni govor
+                    if (!jePraznaLinija(lin)) {
+                        imaGovora = true;
+                    }
+                    break;
+                }
+
+                if (imaGovora) {
+                    let ime = recenice[i].trim();
+                    if (!provjeraPostojiLi(uloge, ime)) uloge.push(ime);
+                }
             }
         }
         return uloge;
@@ -139,28 +174,45 @@ function jePraznaLinija(linija) {
 
 
 
-    // poredjenje dva imena uloga: koliko se slova razlikuje
-function vrloSlicnoIme(imeA, imeB) {
-    // maknemo razmake da "STARI MARKO" i "STARI     MARKO" ne zezaju
-    let a = imeA.replace(/ /g, "");
-    let b = imeB.replace(/ /g, "");
+    // poređenje dva imena uloga: koliko se slova razlikuje (dozvoljena mala razlika u dužini)
+    function vrloSlicnoIme(imeA, imeB) {
+        // maknemo razmake da "STARI MARKO" i "STARI     MARKO" ne zezaju
+        let a = imeA.replace(/ /g, "");
+        let b = imeB.replace(/ /g, "");
 
-    if (a.length !== b.length) return false;
+        let maxLen = Math.max(a.length, b.length);
+        // prema zadatku: ako su oba imena duža od 5 slova dozvoljena su najviše 2 razlike, inače 1
+        let maxRazlika = (maxLen > 5) ? 2 : 1;
 
-    // prema zadatku: oba moraju biti > 5 da bi razlika bila do 2
-    let maxRazlika = (a.length > 5 && b.length > 5) ? 2 : 1;
+        let i = 0, j = 0;
+        let razlika = 0;
 
-    let razlika = 0;
+        while (i < a.length && j < b.length) {
+            if (a[i] === b[j]) {
+                i++;
+                j++;
+            } else {
+                razlika++;
+                if (razlika > maxRazlika) return false;
 
-    for (let i = 0; i < a.length; i++) {
-        if (a[i] !== b[i]) {
-            razlika++;
-            if (razlika > maxRazlika) return false;
+                // pokušaj preskočiti slovo u dužem stringu (brisanje/umetanje)
+                if (a.length > b.length) {
+                    i++;
+                } else if (b.length > a.length) {
+                    j++;
+                } else {
+                    // iste dužine: tretiramo kao zamjenu znaka
+                    i++;
+                    j++;
+                }
+            }
         }
-    }
 
-    return true;
-}
+        // preostali znakovi na kraju dužeg stringa računamo kao dodatne razlike
+        razlika += (a.length - i) + (b.length - j);
+
+        return razlika <= maxRazlika;
+    }
 
     let pogresnaUloga = function() {
     let text = divRef.innerText;

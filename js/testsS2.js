@@ -164,7 +164,7 @@ describe('EditorTeksta Modul', () => {
             // Spec: "isključivo velikim slovima, bez drugih znakova (brojeva, interpunkcije)"
             // "odmah ispod te linije mora postojati najmanje jedna linija običan govor"
             editorDiv.innerHTML = `
-                INT. SCENA 1
+                INT. - DAY
                 
                 MARKO
                 Pozdrav svima.
@@ -327,7 +327,7 @@ describe('EditorTeksta Modul', () => {
         let editor;
         
         const script = `
-            INT. SOBA
+            INT. - DAY
             
             ANA
             Bok.
@@ -338,7 +338,7 @@ describe('EditorTeksta Modul', () => {
             ANA
             Kako si?
             
-            EXT. VRT
+            EXT. - DAY
             
             ANA
             Lijepo vrijeme.
@@ -356,18 +356,18 @@ describe('EditorTeksta Modul', () => {
             assert.equal(res.length, 3);
             
             // Prvo pojavljivanje
-            assert.equal(res[0].scena, 'INT. SOBA');
+            assert.equal(res[0].scena, 'INT. - DAY');
             assert.equal(res[0].pozicijaUTekstu, 1);
             assert.isNull(res[0].prethodni);
             assert.equal(res[0].sljedeci.uloga, 'IVAN');
             
             // Drugo pojavljivanje
-            assert.equal(res[1].scena, 'INT. SOBA');
+            assert.equal(res[1].scena, 'INT. - DAY');
             assert.equal(res[1].pozicijaUTekstu, 3);
             assert.equal(res[1].prethodni.uloga, 'IVAN');
             
             // Treće pojavljivanje (nova scena)
-            assert.equal(res[2].scena, 'EXT. VRT');
+            assert.equal(res[2].scena, 'EXT. - DAY');
             assert.equal(res[2].pozicijaUTekstu, 1); // Brojač ide od 1 jer je nova scena
             assert.isNull(res[2].prethodni); //Nema ranijeg govora u ovoj sceni
         });
@@ -384,7 +384,7 @@ describe('EditorTeksta Modul', () => {
 
         it('treba grupisati uloge po scenama i segmentima (prekid na AKCIJU)', () => {
             editorDiv.innerHTML = `
-                INT. SCENA 1
+                INT. - DAY
                 
                 A
                 Text.
@@ -397,13 +397,14 @@ describe('EditorTeksta Modul', () => {
                 C
                 Text.
                 
-                INT. SCENA 2
+                INT. - NIGHT
                 
                 A
                 Text.
             `.replace(/\n/g, '<br>');
             editor = EditorTeksta(editorDiv);
             const grupe = editor.grupisiUloge();
+            console.log(editorDiv.innerHTML);
             console.log(grupe);
             // Ocekujemo 3 grupe:
             // 1. SCENA 1, Segment 1: [A, B]
@@ -412,13 +413,13 @@ describe('EditorTeksta Modul', () => {
             
             assert.equal(grupe.length, 3);
             
-            assert.equal(grupe[0].scena, 'INT. SCENA 1');
+            assert.equal(grupe[0].scena, 'INT. - DAY');
             assert.deepEqual(grupe[0].uloge, ['A', 'B']);
             
-            assert.equal(grupe[1].scena, 'INT. SCENA 1');
+            assert.equal(grupe[1].scena, 'INT. - DAY');
             assert.deepEqual(grupe[1].uloge, ['C']);
             
-            assert.equal(grupe[2].scena, 'INT. SCENA 2');
+            assert.equal(grupe[2].scena, 'INT. - NIGHT');
             assert.deepEqual(grupe[2].uloge, ['A']);
         });
     });

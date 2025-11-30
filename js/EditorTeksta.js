@@ -109,12 +109,13 @@ for(let i = 0; i<uloge.length; i++){
 return false;
 }
 function jesuLiSpaceIliVelikoSlovo(str){
+str=str.trim();
 for(let i=0;i<str.length;i++){
     if(!(slovoVelikoRegex.test(str[i])|| str[i]==" "))return false;
 }
 let provjeraSpace=false;
 for(let i=0;i<str.length;i++) if(str[i]!=" ")provjeraSpace=true;
-return true&&provjeraSpace;
+return provjeraSpace;
 }
 function jePraznaLinija(linija) {
     return linija.trim().length === 0;
@@ -283,7 +284,8 @@ function jeNaslovScene(linija) {
     if (idx === -1) return false;
 
     let kraj = trimmed.substring(idx + 3).trim();
-    return kraj === "DAY" || kraj === "NIGHT" || kraj === "AFTERNOON" || kraj === "MORNING" || kraj === "EVENING";
+    return kraj === "DAY" || kraj === "NIGHT" || kraj === "AFTERNOON" ||
+           kraj === "MORNING" || kraj === "EVENING";
 }
 
 
@@ -335,10 +337,14 @@ let brojLinijaTeksta = function (uloga) {
 }
 // akcijski segment = linija koja nije uloga, nije prazna, nije u zagradama
 function jeAkcijskiSegment(linija) {
+    // linija dolazi direktno iz divRef.innerText (split po "\n")
+    // koristimo postojece pomocne provjere da se prazne i specijalne linije
+    // ne tretiraju kao akcija
     if (jePraznaLinija(linija)) return false;
     if (jeLinijaUZagradama(linija)) return false;
-    if (jesuLiSpaceIliVelikoSlovo(linija)) return false;
+    // naslove scena tretiramo kao akcijski prekid
     if (jeNaslovScene(linija)) return true;
+    // sve ostalo (ukljucujuci lazne "uloge" bez govora) je akcijski segment
     return true;
 }
 
@@ -468,7 +474,33 @@ function jeAkcijskiSegment(linija) {
                 // pogledaj linije između dvije replike
                 for (let linIdx = prev.end + 1; linIdx < cur.start; linIdx++) {
                     let l = recenice[linIdx];
-                    if (jeAkcijskiSegment(l) || jeNaslovScene(l)) {
+
+                    // naslov scene uvijek prekida
+                    if (jeNaslovScene(l)) {
+                        prekid = true;
+                        break;
+                    }
+
+                    // ako je linija sva velikim slovima, provjeri da li je zaista pocetak replike
+                    if (jesuLiSpaceIliVelikoSlovo(l)) {
+                        let postojiReplika = false;
+                        for (let r = 0; r < replike.length; r++) {
+                            if (replike[r].start === linIdx) {
+                                postojiReplika = true;
+                                break;
+                            }
+                        }
+                        // linija velikim slovima koja NIJE pocetak replike je akcijski red (npr. "AKCIJA PREKIDA")
+                        if (!postojiReplika) {
+                            prekid = true;
+                            break;
+                        }
+                        // ako postoji replika, to ce biti obradjeno kao nova replika, ne ovdje
+                        continue;
+                    }
+
+                    // ostali tekst (nije prazno, nije zagrade) tretiramo kao akcijski segment
+                    if (jeAkcijskiSegment(l)) {
                         prekid = true;
                         break;
                     }

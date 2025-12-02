@@ -114,10 +114,8 @@ window.addEventListener("DOMContentLoaded", function () {
             return;
         }
         const rez = editor.dajBrojRijeci();
-        prikaziPoruku(
-            `Riječi ukupno: ${rez.ukupno}, boldiranih: ${rez.boldiranih}, italic: ${rez.italic}`,
-            "success"
-        );
+        const tekst = `Ukupno riječi: ${rez.ukupno} | boldiranih: ${rez.boldiranih} | italic: ${rez.italic}`;
+        prikaziPoruku(tekst, "success");
         console.log("dajBrojRijeci:", rez);
     });
 
@@ -128,10 +126,10 @@ window.addEventListener("DOMContentLoaded", function () {
             return;
         }
         const uloge = editor.dajUloge();
-        prikaziPoruku(
-            "Uloge: " + (uloge.length ? uloge.join(", ") : "(nema pronađenih uloga)"),
-            "success"
-        );
+        const tekst = uloge.length
+            ? `Pronađene uloge (${uloge.length}): ${uloge.join(", ")}`
+            : "Nema pronađenih uloga u tekstu.";
+        prikaziPoruku(tekst, "success");
         console.log("dajUloge:", uloge);
     });
 
@@ -142,11 +140,10 @@ window.addEventListener("DOMContentLoaded", function () {
             return;
         }
         const pogresne = editor.pogresnaUloga();
-        if (pogresne.length === 0) {
-            prikaziPoruku("Nema uloga koje izgledaju pogrešno.", "success");
-        } else {
-            prikaziPoruku("Moguće pogrešne uloge: " + pogresne.join(", "), "error");
-        }
+        const tekst = pogresne.length === 0
+            ? "Nema uloga koje izgledaju kao tipo-greške."
+            : `Moguće pogrešno napisane uloge (${pogresne.length}): ${pogresne.join(", ")}`;
+        prikaziPoruku(tekst, pogresne.length === 0 ? "success" : "error");
         console.log("pogresnaUloga:", pogresne);
     });
 
@@ -160,7 +157,10 @@ window.addEventListener("DOMContentLoaded", function () {
         if (grupe.length === 0) {
             prikaziPoruku("Nema dijalog-segmenata za grupisanje.", "success");
         } else {
-            prikaziPoruku(`Broj grupa: ${grupe.length} (vidi konzolu za detalje)`, "success");
+            // napravi kratak pregled po scenama i segmentima
+            const linije = grupe.map(g => `${g.scena || "(bez scene)"}, segment ${g.segment}: ${g.uloge.join(", ")}`);
+            const tekst = `Grupe dijaloga (${grupe.length}): ` + linije.join(" | ");
+            prikaziPoruku(tekst, "success");
         }
         console.log("grupisiUloge:", grupe);
     });
@@ -175,9 +175,12 @@ window.addEventListener("DOMContentLoaded", function () {
         otvoriInputPanel("Unesite ime uloge (tačno kao u scenariju):", function (uloga) {
             const rez = editor.scenarijUloge(uloga);
             if (rez.length === 0) {
-                prikaziPoruku(`Nema replika za ulogu "${uloga}".`, "error");
+                prikaziPoruku(`Uloga "${uloga}" nema nijednu repliku u scenariju.`, "error");
             } else {
-                prikaziPoruku(`Pronađeno replika: ${rez.length} (vidi konzolu za detalje).`, "success");
+                const linije = rez.map(r => `${r.scena || "(bez scene)"}, pozicija ${r.pozicijaUTekstu}`);
+                const tekst = `Uloga "${uloga}" – pronađeno replika: ${rez.length}. ` +
+                              linije.join(" | ");
+                prikaziPoruku(tekst, "success");
             }
             console.log("scenarijUloge:", rez);
         });
@@ -192,7 +195,8 @@ window.addEventListener("DOMContentLoaded", function () {
 
         otvoriInputPanel("Unesite ime uloge za brojanje linija teksta:", function (uloga) {
             const n = editor.brojLinijaTeksta(uloga);
-            prikaziPoruku(`Uloga "${uloga}" ima ${n} linija govora.`, "success");
+            const tekst = `Uloga "${uloga}" ima ${n} linija govora.`;
+            prikaziPoruku(tekst, "success");
             console.log(`brojLinijaTeksta(${uloga}):`, n);
         });
     });

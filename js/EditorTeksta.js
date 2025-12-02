@@ -9,6 +9,55 @@ let EditorTeksta = function (divRef) {
         return slovoRegex.test(ch) || ch === '-' || ch === "'";
     }
 
+    // helper: pročita "čisti" tekst iz contenteditable bez
+    // vještačkih praznih linija između paragrafa.
+    // Novi red se dodaje samo za prave block elemente i <br>.
+    function procitajCistiTekst(root) {
+        let rezultat = "";
+
+        function jeBlockElement(node) {
+            if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+            const blockTags = [
+                "P", "DIV", "HEADER", "SECTION", "ARTICLE", "ASIDE", "MAIN",
+                "H1", "H2", "H3", "H4", "H5", "H6", "LI"
+            ];
+            return blockTags.indexOf(node.tagName) !== -1;
+        }
+
+        function obilazak(node) {
+            if (!node) return;
+
+            if (node.nodeType === Node.TEXT_NODE) {
+                rezultat += node.nodeValue;
+                return;
+            }
+
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const tag = node.tagName.toUpperCase();
+
+                if (tag === "BR") {
+                    rezultat += "\n";
+                    return;
+                }
+
+                const prije = rezultat.length;
+
+                for (let i = 0; i < node.childNodes.length; i++) {
+                    obilazak(node.childNodes[i]);
+                }
+
+                if (jeBlockElement(node) && rezultat.length > prije) {
+                    if (!rezultat.endsWith("\n")) rezultat += "\n";
+                }
+            }
+        }
+
+        obilazak(root);
+
+        // normalizuj nove redove i ukloni završne
+        return rezultat.replace(/\r\n/g, "\n").replace(/\n+$/g, "");
+    }
+
     let dajBrojRijeci = function () {
         let rez = {
             ukupno: 0,
@@ -126,8 +175,7 @@ function jePraznaLinija(linija) {
 
     let dajUloge = function () {
         let uloge = [];
-        console.log(divRef.innerText);
-        let recenice = divRef.innerText.split("\n");
+        let recenice = procitajCistiTekst(divRef).split("\n");
         for (let i = 0; i < recenice.length; i++) {
             // trenutna linija potencijalno ime uloge
             if (jesuLiSpaceIliVelikoSlovo(recenice[i])) {
@@ -216,7 +264,7 @@ function jePraznaLinija(linija) {
     }
 
     let pogresnaUloga = function() {
-    let text = divRef.innerText;
+    let text = procitajCistiTekst(divRef);
     let recenice = text.split("\n");
 
     // broj pojavljivanja svake uloge
@@ -291,10 +339,10 @@ function jeNaslovScene(linija) {
 
 let brojLinijaTeksta = function (uloga) {
     if (!uloga) return 0;
-
+ 
     let trazena = uloga.trim().toUpperCase();
 
-    let text = divRef.innerText;
+    let text = procitajCistiTekst(divRef);
     let recenice = text.split("\n");
 
     let ukupno = 0;
@@ -354,7 +402,7 @@ function jeAkcijskiSegment(linija) {
     let trazena = uloga.trim().toUpperCase();
 
     // 1) Pročitamo tekst i podijelimo u linije
-    let text = divRef.innerText;
+    let text = procitajCistiTekst(divRef);
     let recenice = text.split("\n");
 
     let replike = []; // svi blokovi govora
@@ -585,7 +633,7 @@ function jeAkcijskiSegment(linija) {
 
     let grupisiUloge = function () {
     // 1) Pročitamo tekst i podijelimo u linije
-    let text = divRef.innerText;
+    let text = procitajCistiTekst(divRef);
     let recenice = text.split("\n");
 
     let replike = [];              // svi blokovi govora

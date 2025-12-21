@@ -5,6 +5,40 @@ let editor = null;
 window.addEventListener("DOMContentLoaded", function () {
     const editorDiv = document.getElementById("editor");
     const porukeDiv = document.getElementById("poruke");
+    const saveBtn = document.querySelector(".save-btn");
+
+    const USER_ID = 1;
+
+    function getScenarioIdFromUrlOrStorage() {
+        const params = new URLSearchParams(window.location.search);
+        const fromUrl = params.get("scenarioId");
+        if (fromUrl && Number.isInteger(Number(fromUrl))) return Number(fromUrl);
+
+        const fromStorage = localStorage.getItem("scenarioId");
+        if (fromStorage && Number.isInteger(Number(fromStorage))) return Number(fromStorage);
+        return null;
+    }
+
+    function setScenarioIdEverywhere(id) {
+        localStorage.setItem("scenarioId", String(id));
+        const params = new URLSearchParams(window.location.search);
+        params.set("scenarioId", String(id));
+        const newUrl = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState({}, "", newUrl);
+    }
+
+    function getEditorLines() {
+        const text = (editorDiv?.innerText || "").replace(/\r\n/g, "\n");
+        const lines = text.split("\n");
+        // Dozvoljeno je da pojedini stringovi budu prazni, ali newText niz ne smije biti prazan.
+        return lines.length > 0 ? lines : [""];
+    }
+
+    function renderScenario(scenario) {
+        if (!scenario || !Array.isArray(scenario.content)) return;
+        const text = scenario.content.map((l) => l.text ?? "").join("\n");
+        editorDiv.textContent = text;
+    }
 
     // ========== helper za poruke ==========
     function prikaziPoruku(tekst, tip) {
@@ -76,6 +110,83 @@ window.addEventListener("DOMContentLoaded", function () {
         console.error(err);
         return;
     }
+
+    // ========== backend povezivanje (PoziviAjaxFetch) ==========
+    let scenarioId = getScenarioIdFromUrlOrStorage();
+
+    function loadScenarioIfPossible() {
+        if (!PoziviAjaxFetch || typeof PoziviAjaxFetch.getScenario !== "function") return;
+        if (!scenarioId) return;
+
+        PoziviAjaxFetch.getScenario(scenarioId, (status, data) => {
+            if (status === 200) {
+                renderScenario(data);
+                prikaziPoruku(`Ucitano: scenario ${scenarioId}.`, "success");
+            } else if (status === 404) {
+                prikaziPoruku("Scenario ne postoji!", "error");
+            } else {
+                prikaziPoruku(data?.message || "Greska pri dohvatu scenarija.", "error");
+            }
+        });
+    }
+
+    async function ensureScenarioThenSave() {
+        if (!PoziviAjaxFetch) {
+            prikaziPoruku("PoziviAjaxFetch modul nije ucitan.", "error");
+            return;
+        }
+
+        // 1) Ako nemamo scenario, kreiraj ga
+        if (!scenarioId) {
+            const titleEl = document.querySelector(".project-title");
+            const title = titleEl ? titleEl.textContent.trim() : "Neimenovani scenarij";
+
+            PoziviAjaxFetch.postScenario(title, (status, data) => {
+                if (status !== 200 || !data?.id) {
+                    prikaziPoruku(data?.message || "Greska pri kreiranju scenarija.", "error");
+                    return;
+                }
+
+                scenarioId = data.id;
+                setScenarioIdEverywhere(scenarioId);
+                prikaziPoruku(`Kreiran scenario ${scenarioId}.`, "success");
+                saveLine1();
+            });
+            return;
+        }
+
+        // 2) Ako imamo scenario, samo snimi
+        saveLine1();
+    }
+
+    function saveLine1() {
+        const newText = getEditorLines();
+        PoziviAjaxFetch.lockLine(scenarioId, 1, USER_ID, (lockStatus, lockData) => {
+            if (lockStatus !== 200) {
+                prikaziPoruku(lockData?.message || "Ne mogu zakljucati liniju.", "error");
+                return;
+            }
+
+            PoziviAjaxFetch.updateLine(scenarioId, 1, USER_ID, newText, (upStatus, upData) => {
+                if (upStatus !== 200) {
+                    prikaziPoruku(upData?.message || "Greska pri spremanju.", "error");
+                    return;
+                }
+
+                prikaziPoruku("Spaseno.", "success");
+                // reload iz backenda da dobijemo prelomljene linije
+                loadScenarioIfPossible();
+            });
+        });
+    }
+
+    if (saveBtn) {
+        saveBtn.addEventListener("click", () => {
+            ensureScenarioThenSave();
+        });
+    }
+
+    loadScenarioIfPossible();
 
     // ========== formatirajTekst dugmad ==========
     document.getElementById("btnBold").addEventListener("click", function () {

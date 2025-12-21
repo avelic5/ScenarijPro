@@ -1,0 +1,26 @@
+{
+  "name": "scenarijpro",
+  "version": "1.0.0",
+  "description": "Project for subject web technologies",
+  "homepage": "https://bitbucket.org/avelic5/wt26p19761#readme",
+  "bugs": {
+    "url": "https://bitbucket.org/avelic5/wt26p19761/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://avelic5-admin@bitbucket.org/avelic5/wt26p19761.git"
+  },
+  "license": "ISC",
+  "author": "Aldin Velic",
+  "type": "commonjs",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

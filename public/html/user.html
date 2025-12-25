@@ -89,5 +89,18 @@
     </form>
   </main>
 
+  <script>
+    // Minimalno: ova forma trenutno nema backend spremanje.
+    // Klik na "Spasi promjene" vraća korisnika na početnu stranicu.
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.querySelector("form.card");
+      if (!form) return;
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        window.location.href = "/html/projects.html";
+      });
+    });
+  </script>
+
 </body>
 </html>

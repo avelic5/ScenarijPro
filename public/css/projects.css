@@ -40,6 +40,8 @@ p { margin: 0.3rem 0; }
 
 a { text-decoration: none; color: inherit; }
 
+.hidden{ display:none; }
+
 .sidebar-nav {
     display: flex;
     flex-direction: column;
@@ -92,6 +94,11 @@ hr {
     gap: 1.5rem;
     background-color: #f3f4f6c0;
     margin: 0 2.2rem;
+  text-decoration: none;
+}
+
+.user-profile:hover{
+  cursor: pointer;
 }
 
 .avatar {
@@ -146,11 +153,13 @@ hr {
   border-radius:14px;
   padding:16px 18px;
   box-shadow: 0 4px 14px rgba(0,0,0,0.04);
-  transition: box-shadow .2s ease; /* za hover sjenu */
+  cursor: pointer;
+  transition: box-shadow .2s ease, transform .2s ease; /* hover sjena + lagani grow */
 }
 /* HOVER kartice – po specifikaciji: 0 2px 8px @ 5% */
 .project-card:hover{
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transform: scale(1.015);
 }
 
 .project-title{
@@ -192,6 +201,92 @@ hr {
   font-size:22px; line-height:1; cursor:pointer;
 }
 .create-btn:hover{ background:#f1f5f9; }
+
+/* Modal (kreiranje scenarija) */
+.modal{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index: 100;
+}
+
+/* .hidden je definisan ranije, ali ga .modal { display:flex } može pregaziti.
+   Zato eksplicitno sakrij modal kad ima klasu hidden. */
+.modal.hidden{ display:none; }
+
+.modal-content{
+  width: min(520px, calc(100% - 2rem));
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.modal-title{
+  margin: 0 0 10px 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color:#0f172a;
+}
+
+.modal-field{
+  display:flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+
+.modal-field label{
+  font-size: .85rem;
+  color: #555B6D;
+  font-weight: 600;
+}
+
+.modal-field input{
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: .95rem;
+  outline: none;
+}
+
+.modal-field input:focus{
+  border-color: #5B3FFF;
+  box-shadow: 0 0 0 3px rgba(91,63,255,0.12);
+}
+
+.modal-error{
+  min-height: 1.1em;
+  margin-top: .6rem;
+  color: #b3261e;
+  font-size: .9rem;
+}
+
+.modal-actions{
+  margin-top: .9rem;
+  display:flex;
+  justify-content:flex-end;
+  gap: .6rem;
+}
+
+/* Reuse pill button styling from writing page without adding new components */
+.tool-btn{
+  text-transform: uppercase;
+  font-size: .75rem;
+  background: #f5f5ff;
+  color: #555;
+  border: none;
+  border-radius: 9999px;
+  padding: .45rem .9rem;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.tool-btn.secondary{ font-weight: 500; opacity: 0.9; }
+.tool-btn:hover{ background:#e4e4f5; }
 
 
 /* 1 kolona grida ispod 750px + sidebar ide IZNAD sadržaja */

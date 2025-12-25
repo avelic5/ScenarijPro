@@ -19,7 +19,7 @@
           <path d="M15 19L8 12l7-7" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <h1 class="project-title" title="KRIMI SCENARIJ 01 — Druga verzija"><strong>KRIMI SCENARIJ 01 — Druga verzija</strong></h1>
+      <h1 class="project-title" title="Neimenovani scenarij"><strong>Neimenovani scenarij</strong></h1>
     </div>
 
     <div class="header-center">
@@ -30,7 +30,8 @@
     </div>
 
     <div class="header-right">
-      <button class="save-btn">SPASI</button>
+      <button class="delete-btn" type="button">OBRIŠI</button>
+      <button class="save-btn" type="button">SPASI</button>
     </div>
   </header>
 
@@ -54,19 +55,9 @@
 
   <!-- DIV ZA PORUKE -->
   <div id="poruke" class="poruke"></div>
-<!-- Modalni input za unos uloge -->
-<div id="input-panel" class="input-panel hidden">
-    <label for="input-tekst">Unesite ime uloge:</label>
-    <input type="text" id="input-tekst" autocomplete="off">
-    <button id="input-potvrdi" class="confirm-btn">Potvrdi</button>
-    <button id="input-zatvori" class="close-btn">Zatvori</button>
-</div>
 
-
-  
-
-  <!-- LAYOUT -->
-  <div class="layout">
+  <!-- Gornji red: scene lijevo, API paneli desno -->
+  <div class="top-row">
     <!-- Sidebar sa scenama -->
     <aside class="sidebar">
       <div class="sidebar-title">Scene <span class="count">(3)</span></div>
@@ -98,30 +89,100 @@
       </ul>
     </aside>
 
-    <!-- Editor -->
-        <!-- Editor -->
-    <main class="editor-wrap">
-      <div id="editor" class="editor-paper" contenteditable="true">
-        <header class="scene-heading">EXT. OBALA RIJEKE – DAN</header>
+    <div class="api-stack" aria-label="API kontrole">
+      <!-- Backend kontrole (S2): scenario/linije/likovi/deltas -->
+      <div class="api-panel" id="api-controls">
+        <div class="api-field">
+          <label for="api-userId">User ID</label>
+          <input id="api-userId" type="number" inputmode="numeric" min="1" value="1" />
+        </div>
+        <div class="api-field">
+          <label for="api-scenarioId">Scenario ID</label>
+          <input id="api-scenarioId" type="number" inputmode="numeric" min="1" placeholder="npr. 1" />
+        </div>
+        <div class="api-field">
+          <label for="api-status">Status</label>
+          <input id="api-status" type="text" placeholder="U radu" autocomplete="off" />
+        </div>
+        <div class="api-field">
+          <label for="api-lineId">Line ID</label>
+          <input id="api-lineId" type="number" inputmode="numeric" min="1" value="1" />
+        </div>
 
-        <p>
-          Mirna površina rijeke presijava se na suncu. Muradif (35), smiren ali napet,
-          stoji uz ogradu i posmatra vodu. Koraci se približavaju iza njega.
-        </p>
-
-        <p>
-          On ne skreće pogled. Tek kad tišina potraje sekundu predugo, izdahne i kaže:
-          “Znao sam da ćeš doći.”
-        </p>
+        <button id="btnApiLoadScenario" type="button" class="tool-btn secondary">Učitaj scenario</button>
+        <button id="btnApiUpdateStatus" type="button" class="tool-btn secondary">Ažuriraj status</button>
+        <button id="btnApiLoadLine" type="button" class="tool-btn secondary">Učitaj liniju</button>
+        <button id="btnApiInsertBelow" type="button" class="tool-btn secondary">Dodaj liniju ispod</button>
+        <button id="btnApiAppendEnd" type="button" class="tool-btn secondary">Dodaj liniju na kraj</button>
+        <button id="btnApiLockLine" type="button" class="tool-btn secondary">Zaključaj liniju</button>
+        <button id="btnApiUpdateLine" type="button" class="tool-btn secondary">Ažuriraj liniju</button>
       </div>
-    </main>
 
+      <div class="api-panel" id="api-character">
+        <div class="api-field">
+          <label for="api-charName">Ime lika (LOCK)</label>
+          <input id="api-charName" type="text" placeholder="ALICE" autocomplete="off" />
+        </div>
+        <button id="btnApiLockChar" type="button" class="tool-btn secondary">Zaključaj ime</button>
+
+        <div class="api-field">
+          <label for="api-oldName">Staro ime</label>
+          <input id="api-oldName" type="text" placeholder="ALICE" autocomplete="off" />
+        </div>
+        <div class="api-field">
+          <label for="api-newName">Novo ime</label>
+          <input id="api-newName" type="text" placeholder="ALICIA" autocomplete="off" />
+        </div>
+        <button id="btnApiRenameChar" type="button" class="tool-btn secondary">Promijeni ime</button>
+      </div>
+
+      <div class="api-panel" id="api-deltas">
+        <div class="api-field">
+          <label for="api-since">Since (unix)</label>
+          <input id="api-since" type="number" inputmode="numeric" min="0" value="0" />
+        </div>
+        <button id="btnApiGetDeltas" type="button" class="tool-btn secondary">Deltas</button>
+      </div>
+    </div>
+  </div>
+
+<!-- Modalni input za unos uloge -->
+<div id="input-panel" class="input-panel hidden">
+    <label for="input-tekst">Unesite ime uloge:</label>
+    <input type="text" id="input-tekst" autocomplete="off">
+    <button id="input-potvrdi" class="confirm-btn">Potvrdi</button>
+    <button id="input-zatvori" class="close-btn">Zatvori</button>
+</div>
+
+
+  
+
+  <!-- Editor -->
+  <main class="editor-wrap">
+    <div id="editor" class="editor-paper" contenteditable="true">
+      <div class="scenario-line" data-line-id="1"><br></div>
+    </div>
+  </main>
+
+  <!-- Popup: potvrda brisanja scenarija -->
+  <div id="deleteScenarioModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="deleteScenarioTitle">
+      <h2 id="deleteScenarioTitle" class="modal-title">Obriši scenarij</h2>
+      <p class="modal-text">Da li ste sigurni da želite obrisati ovaj scenarij? Ova akcija je trajna.</p>
+
+      <div id="deleteScenarioError" class="modal-error" aria-live="polite"></div>
+
+      <div class="modal-actions">
+        <button id="btnDeleteScenarioCancel" type="button" class="tool-btn secondary">Odustani</button>
+        <button id="btnDeleteScenarioConfirm" type="button" class="tool-btn danger">Obriši</button>
+      </div>
+    </div>
   </div>
 
 
-  <script src="../js/EditorTeksta.js"></script>
-  <script src="../js/PoziviAjaxFetch.js"></script>
-  <script src="../js/editor.js"></script>
+  <script src="/js/EditorTeksta.js"></script>
+  <script src="/js/PoziviAjaxFetch.js"></script>
+  <script src="/js/editor.js"></script>
 
 </body>
 </html>

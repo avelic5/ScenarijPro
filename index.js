@@ -178,6 +178,7 @@ app.post("/api/scenarios", async (req, res) => {
         const newScenario = {
             id: nextId,
             title,
+            status: "U radu",
             content: [
                 {
                     lineId: 1,
@@ -192,6 +193,74 @@ app.post("/api/scenarios", async (req, res) => {
         return res.status(200).json(newScenario);
     } catch (err) {
         console.error("Failed to create scenario", err);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+// Lista postojećih scenarija (za Projects stranicu)
+app.get("/api/scenarios", async (_req, res) => {
+    try {
+        await ensureStorage();
+
+        const ids = await listScenarioIds();
+        ids.sort((a, b) => a - b);
+
+        const scenarios = [];
+        for (const id of ids) {
+            const scenario = await readScenario(id);
+            if (!scenario) continue;
+
+            const filePath = path.join(SCENARIOS_DIR, `scenario-${id}.json`);
+            let lastModified = null;
+            try {
+                const st = await fs.stat(filePath);
+                lastModified = Math.floor(st.mtimeMs / 1000);
+            } catch (_) {
+                lastModified = null;
+            }
+
+            scenarios.push({
+                id: scenario.id ?? id,
+                title: scenario.title ?? `Scenarij ${id}`,
+                status: typeof scenario.status === "string" && scenario.status.trim().length > 0 ? scenario.status.trim() : "U radu",
+                lastModified,
+            });
+        }
+
+        return res.status(200).json({ scenarios });
+    } catch (err) {
+        console.error("Failed to list scenarios", err);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+// Ažuriraj status scenarija (slobodan tekst)
+app.put("/api/scenarios/:scenarioId/status", async (req, res) => {
+    const scenarioId = Number(req.params.scenarioId);
+    const statusRaw = typeof req.body.status === "string" ? req.body.status.trim() : "";
+
+    if (!Number.isInteger(scenarioId) || scenarioId < 1) {
+        return res.status(404).json({ message: "Scenario ne postoji!" });
+    }
+
+    if (statusRaw.length === 0) {
+        return res.status(400).json({ message: "Status ne smije biti prazan!" });
+    }
+
+    try {
+        await ensureStorage();
+        const scenario = await readScenario(scenarioId);
+
+        if (!scenario) {
+            return res.status(404).json({ message: "Scenario ne postoji!" });
+        }
+
+        scenario.status = statusRaw;
+        await writeScenario(scenarioId, scenario);
+
+        return res.status(200).json({ message: "Status je uspješno ažuriran!", status: statusRaw });
+    } catch (err) {
+        console.error("Failed to update scenario status", err);
         return res.status(500).json({ message: "Internal server error" });
     }
 });
@@ -415,8 +484,8 @@ app.post("/api/scenarios/:scenarioId/characters/update", async (req, res) => {
             return res.status(404).json({ message: "Scenario ne postoji!" });
         }
 
-        const locks = await readJson(CHAR_LOCKS_FILE, []);
-        const existing = locks.find(
+        const charLocks = await readJson(CHAR_LOCKS_FILE, []);
+        const existing = charLocks.find(
             (lock) => lock.scenarioId === scenarioId && lock.characterName === oldNameRaw
         );
 
@@ -431,6 +500,21 @@ app.post("/api/scenarios/:scenarioId/characters/update", async (req, res) => {
         // Zamijeni ime samo na linijama koje su zaista "uloge" po definiciji (ALL CAPS + govor ispod)
         const ordered = orderContent(scenario.content);
         const roleLineIds = getRoleLineIdsOrdered(ordered);
+
+        // Spriječi promjenu imena ako je neka od relevantnih linija zaključana od drugog korisnika
+        const lineLocks = await readJson(LOCKS_FILE, []);
+        const lockedRoleLine = lineLocks.find(
+            (lock) =>
+                lock.scenarioId === scenarioId &&
+                roleLineIds.has(lock.lineId) &&
+                lock.userId !== userId &&
+                scenario.content.some((l) => l.lineId === lock.lineId && l.text === oldNameRaw)
+        );
+
+        if (lockedRoleLine) {
+            return res.status(409).json({ message: "Konflikt! Linija uloge je zakljucana!" });
+        }
+
         scenario.content = scenario.content.map((line) => {
             if (roleLineIds.has(line.lineId) && line.text === oldNameRaw) {
                 return { ...line, text: newNameRaw }; //override
@@ -441,7 +525,7 @@ app.post("/api/scenarios/:scenarioId/characters/update", async (req, res) => {
         await writeScenario(scenarioId, scenario);
 
         // Ukloni lock za to ime, samo njega
-        const remainingLocks = locks.filter(
+        const remainingLocks = charLocks.filter(
             (lock) => !(lock.scenarioId === scenarioId && lock.characterName === oldNameRaw)
         );
         await writeJson(CHAR_LOCKS_FILE, remainingLocks);
@@ -512,4 +596,56 @@ app.get("/api/scenarios/:scenarioId", async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 
+});
+
+// Brisanje scenarija
+app.delete("/api/scenarios/:scenarioId", async (req, res) => {
+    const scenarioId = Number(req.params.scenarioId);
+
+    if (!Number.isInteger(scenarioId) || scenarioId < 1) {
+        return res.status(404).json({ message: "Scenario ne postoji!" });
+    }
+
+    try {
+        await ensureStorage();
+
+        const scenario = await readScenario(scenarioId);
+        if (!scenario) {
+            return res.status(404).json({ message: "Scenario ne postoji!" });
+        }
+
+        const filePath = path.join(SCENARIOS_DIR, `scenario-${scenarioId}.json`);
+        try {
+            await fs.unlink(filePath);
+        } catch (err) {
+            if (err && err.code === "ENOENT") {
+                return res.status(404).json({ message: "Scenario ne postoji!" });
+            }
+            throw err;
+        }
+
+        // Očisti lockove i deltas vezane za ovaj scenario (da ne ostane "smeće")
+        const locks = await readJson(LOCKS_FILE, []);
+        await writeJson(
+            LOCKS_FILE,
+            Array.isArray(locks) ? locks.filter((l) => Number(l?.scenarioId) !== scenarioId) : []
+        );
+
+        const charLocks = await readJson(CHAR_LOCKS_FILE, []);
+        await writeJson(
+            CHAR_LOCKS_FILE,
+            Array.isArray(charLocks) ? charLocks.filter((l) => Number(l?.scenarioId) !== scenarioId) : []
+        );
+
+        const deltas = await readJson(DELTAS_FILE, []);
+        await writeJson(
+            DELTAS_FILE,
+            Array.isArray(deltas) ? deltas.filter((d) => Number(d?.scenarioId) !== scenarioId) : []
+        );
+
+        return res.status(200).json({ message: "Scenario je uspješno obrisan!" });
+    } catch (err) {
+        console.error("Failed to delete scenario", err);
+        return res.status(500).json({ message: "Internal server error" });
+    }
 });

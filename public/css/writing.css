@@ -21,6 +21,8 @@ body{
 
 }
 
+.hidden{ display:none; }
+
 /* Zaglavlje */
 .app-header{
   position: sticky;
@@ -89,52 +91,34 @@ body{
 }
 .mode-btn:hover{ background:#f0f0f0; } /* zahtjevana boja na hover */
 
-.header-right{ display:flex; justify-content:flex-end; }
+.header-right{ display:flex; justify-content:flex-end; align-items:center; gap:.5rem; }
 .save-btn{
   text-transform: uppercase;
   font-weight: 600;
   background:#28a745; color:#fff;
-  border:none; border-radius: 10px;
-  padding:.55rem 1rem; cursor:pointer;
+  border:none;
+  border-radius: 9999px;
+  padding: .55rem 1rem;
+  cursor:pointer;
   box-shadow: var(--btn-shadow);
-  transition: background-color .2s ease; /* 0.2s kako je traženo */
-}
-.save-btn:hover{ background:#218838; }
-
-/* ===== Layout ===== */
-.layout{
-  display:flex;
-  align-items: flex-start;
-  
-  gap:1rem;
-  padding: 1rem;
-}
-
-/* Sidebar */
-.sidebar{
-  width:250px; 
-  flex: 0 0 250px;
-}
-.sidebar-title{
-  font-weight:600;
-  color:var(--muted);
-  margin-bottom:.5rem;
-}
-.sidebar-title .count{ color:#8b90a3; }
-
-.scene-list{
-  list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:.5rem;
-}
-.scene-item{
-  background:#fff;
-  border-radius:12px;
-  padding:.6rem .75rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,.04);
-  border:1px solid #eee;
-}
-.scene-item .scene-main{
   display:flex; align-items:center; gap:.4rem;
+  transition: filter .15s ease, transform .15s ease;
 }
+.save-btn:hover{ filter: brightness(0.95); }
+
+.delete-btn{
+  text-transform: uppercase;
+  font-weight: 600;
+  background:#fff;
+  color:#b3261e;
+  border: 1px solid #b3261e;
+  border-radius: 9999px;
+  padding: .55rem 1rem;
+  cursor:pointer;
+  box-shadow: var(--btn-shadow);
+  transition: filter .15s ease, transform .15s ease, background-color .15s ease;
+}
+.delete-btn:hover{ background:#f7f7f7; }
 .scene-no{ font-weight:700; color:#6a6f82; }
 .scene-title{  color:#989898;; font-weight:600; }
 .scene-pages{
@@ -157,7 +141,12 @@ body{
 }
 
 /* Editor */
-.editor-wrap{ flex:1 1 auto; min-width:0; }
+.editor-wrap{
+  flex:1 1 auto;
+  min-width:0;
+  width: calc(100% - 2rem);
+  margin: .8rem 1rem 1.2rem;
+}
 .editor-paper{
   background: var(--paper);
   border-radius: 14px;
@@ -166,7 +155,81 @@ body{
   font-family: "Courier Prime", "Courier New", monospace;
   line-height: 1.6;
 }
+.scenario-line{
+  white-space: pre-wrap;
+}
+
+.scenario-line.is-active{
+  background: var(--brand-100);
+  border-left: 4px solid var(--brand);
+  padding-left: .5rem;
+  border-radius: 8px;
+}
 .editor-paper p{ margin: 0 0 1.5em 0; } /* razmak 1.5em između pasusa */
+
+/* Gornji red: scene + API paneli */
+.top-row{
+  width: calc(100% - 2rem);
+  max-width: none;
+  margin: .4rem 1rem 0;
+  display:flex;
+  align-items:flex-start;
+  gap: .8rem;
+}
+
+.sidebar{
+  flex: 0 0 240px;
+  max-width: 240px;
+}
+
+.sidebar-title{
+  font-weight: 600;
+  color: var(--muted);
+  margin: .2rem 0 .45rem;
+}
+
+.scene-list{
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.scene-item{
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .6rem;
+  padding: .45rem .6rem;
+  border-radius: 12px;
+}
+
+.scene-item + .scene-item{ margin-top: .25rem; }
+
+.scene-main{
+  display:flex;
+  align-items: baseline;
+  gap: .35rem;
+  min-width: 0;
+}
+
+.scene-title{
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.api-stack{
+  flex: 1 1 auto;
+  min-width: 0;
+  display:flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.api-stack .api-panel{
+  width: 100%;
+  margin: 0;
+}
 
 /* Naslov scene (samo to posebno formatiramo) */
 .scene-heading{
@@ -180,12 +243,13 @@ body{
 
 /* ===== Responsivnost ===== */
 @media (max-width: 750px){
-  .layout{
+  .top-row{
     flex-direction: column; /* sidebar ide iznad editora */
   }
   .sidebar{
     width:100%;
     flex-basis:auto;
+    max-width: none;
   }
   html{
     font-size: 80%;
@@ -216,6 +280,61 @@ body{
   padding: .35rem .8rem;
   cursor: pointer;
   box-shadow: var(--btn-shadow);
+}
+.tool-btn.danger{
+  background: #fff;
+  color: #b3261e;
+  border: 1px solid #b3261e;
+}
+.tool-btn.danger:hover{
+  background: #f7f7f7;
+}
+
+/* Modal (potvrda brisanja) */
+.modal{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal.hidden{ display:none; }
+
+.modal-content{
+  width: min(520px, calc(100% - 2rem));
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.modal-title{
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.modal-text{
+  margin: 0;
+  color: var(--muted);
+}
+
+.modal-error{
+  min-height: 1.1em;
+  margin-top: .6rem;
+  color: #b3261e;
+  font-size: .9rem;
+}
+
+.modal-actions{
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
 }
 .tool-btn.secondary{
   font-weight: 500;
@@ -249,6 +368,41 @@ body{
   align-items: center;
   gap: .6rem;
 }
+
+/* API kontrole (S2) */
+.api-panel{
+  margin: 0 auto;
+  margin-top: .4rem;
+  background: #fff;
+  padding: .8rem 1rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  width: min(1100px, calc(100% - 2rem));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: .6rem;
+}
+
+.api-field{
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 160px;
+}
+
+.api-field label{
+  font-size: .75rem;
+  color: var(--muted);
+}
+
+.api-field input{
+  padding: .3rem .5rem;
+  font-size: .85rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
 
 .input-panel.hidden{
   display: none;

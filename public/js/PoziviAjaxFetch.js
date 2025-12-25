@@ -48,10 +48,32 @@ const PoziviAjaxFetch = (function () {
     }
 
     return {
+        getScenarios: function (callback) {
+            request("GET", "/api/scenarios", undefined, callback);
+        },
+
+        updateScenarioStatus: function (scenarioId, status, callback) {
+            request(
+                "PUT",
+                `/api/scenarios/${encodeURIComponent(scenarioId)}/status`,
+                { status },
+                callback
+            );
+        },
+
         postScenario: function (title, callback) {
             const body = {};
             if (typeof title === "string") body.title = title;
             request("POST", "/api/scenarios", body, callback);
+        },
+
+        deleteScenario: function (scenarioId, callback) {
+            request(
+                "DELETE",
+                `/api/scenarios/${encodeURIComponent(scenarioId)}`,
+                undefined,
+                callback
+            );
         },
 
         lockLine: function (scenarioId, lineId, userId, callback) {

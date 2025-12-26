@@ -242,11 +242,13 @@ function initProjectsPage() {
     function refreshScenarios(force) {
         __projectsRequestSeq++;
         const reqSeq = __projectsRequestSeq;
-        // Standardno učitavanje scenarija
+        // Standardno učitavanje scenarija.
+        // Nakon create/delete navigacije browser ponekad vrati privremeno praznu listu
+        // (cache/race). Retry uklanja potrebu za ručnim refresh-om.
         ucitajScenarijeWithRetry({
-            retriesLeft: 0,
-            delayMs: 250,
-            treatEmptyAsFailure: false,
+            retriesLeft: 3,
+            delayMs: 200,
+            treatEmptyAsFailure: true,
             reqSeq,
         });
     }

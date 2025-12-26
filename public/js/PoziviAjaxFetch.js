@@ -26,6 +26,7 @@ const PoziviAjaxFetch = (function () {
     function request(method, url, body, callback) {
         const options = {
             method,
+            cache: "no-store",
             headers: {
                 "Accept": "application/json",
             },
@@ -118,6 +119,15 @@ const PoziviAjaxFetch = (function () {
                 "GET",
                 `/api/scenarios/${encodeURIComponent(scenarioId)}/deltas?since=${encodeURIComponent(sinceValue)}`,
                 undefined,
+                callback
+            );
+        },
+
+        releaseLineLocks: function (userId, callback) {
+            request(
+                "POST",
+                "/api/locks/release",
+                { userId },
                 callback
             );
         },

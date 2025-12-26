@@ -22,11 +22,19 @@
       <h1 class="project-title" title="Neimenovani scenarij"><strong>Neimenovani scenarij</strong></h1>
     </div>
 
-    <div class="header-center">
-      <button class="mode-btn">SCENA</button>
-      <button class="mode-btn">AKCIJA</button>
-      <button class="mode-btn">LIK</button>
-      <button class="mode-btn">DIJALOG</button>
+    <div class="header-center header-toolbar" aria-label="Alati">
+      <!-- formatirajTekst -->
+      <button id="btnBold" class="tool-btn"><b>Bold</b></button>
+      <button id="btnItalic" class="tool-btn"><b>Italic</b></button>
+      <button id="btnUnderline" class="tool-btn"><b>Underline</b></button>
+
+      <!-- ostale metode modula -->
+      <button id="btnBrojRijeci" class="tool-btn secondary">Broj riječi</button>
+      <button id="btnDajUloge" class="tool-btn secondary">Daj uloge</button>
+      <button id="btnPogresnaUloga" class="tool-btn secondary">Pogrešne uloge</button>
+      <button id="btnGrupisiUloge" class="tool-btn secondary">Grupiši uloge</button>
+      <button id="btnScenarijUloge" class="tool-btn secondary">Scenarij uloge</button>
+      <button id="btnBrojLinija" class="tool-btn secondary">Broj linija uloge</button>
     </div>
 
     <div class="header-right">
@@ -35,23 +43,6 @@
     </div>
   </header>
 
-
-
-    <!-- TOOLBAR ZA EDITOR -->
-  <div class="editor-toolbar">
-    <!-- formatirajTekst -->
-    <button id="btnBold" class="tool-btn"><b>Bold</b></button>
-    <button id="btnItalic" class="tool-btn"><b>Italic</b></button>
-    <button id="btnUnderline" class="tool-btn"><b>Underline</b></button>
-
-    <!-- ostale metode modula -->
-    <button id="btnBrojRijeci" class="tool-btn secondary">Broj riječi</button>
-    <button id="btnDajUloge" class="tool-btn secondary">Daj uloge</button>
-    <button id="btnPogresnaUloga" class="tool-btn secondary">Pogrešne uloge</button>
-    <button id="btnGrupisiUloge" class="tool-btn secondary">Grupiši uloge</button>
-    <button id="btnScenarijUloge" class="tool-btn secondary">Scenarij uloge</button>
-    <button id="btnBrojLinija" class="tool-btn secondary">Broj linija uloge</button>
-  </div>
 
   <!-- DIV ZA PORUKE -->
   <div id="poruke" class="poruke"></div>
@@ -97,25 +88,10 @@
           <input id="api-userId" type="number" inputmode="numeric" min="1" value="1" />
         </div>
         <div class="api-field">
-          <label for="api-scenarioId">Scenario ID</label>
-          <input id="api-scenarioId" type="number" inputmode="numeric" min="1" placeholder="npr. 1" />
-        </div>
-        <div class="api-field">
           <label for="api-status">Status</label>
           <input id="api-status" type="text" placeholder="U radu" autocomplete="off" />
         </div>
-        <div class="api-field">
-          <label for="api-lineId">Line ID</label>
-          <input id="api-lineId" type="number" inputmode="numeric" min="1" value="1" />
-        </div>
-
-        <button id="btnApiLoadScenario" type="button" class="tool-btn secondary">Učitaj scenario</button>
         <button id="btnApiUpdateStatus" type="button" class="tool-btn secondary">Ažuriraj status</button>
-        <button id="btnApiLoadLine" type="button" class="tool-btn secondary">Učitaj liniju</button>
-        <button id="btnApiInsertBelow" type="button" class="tool-btn secondary">Dodaj liniju ispod</button>
-        <button id="btnApiAppendEnd" type="button" class="tool-btn secondary">Dodaj liniju na kraj</button>
-        <button id="btnApiLockLine" type="button" class="tool-btn secondary">Zaključaj liniju</button>
-        <button id="btnApiUpdateLine" type="button" class="tool-btn secondary">Ažuriraj liniju</button>
       </div>
 
       <div class="api-panel" id="api-character">
@@ -179,10 +155,24 @@
     </div>
   </div>
 
+  <!-- Popup: deltas (izmjene) -->
+  <div id="deltasModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="deltasTitle">
+      <h2 id="deltasTitle" class="modal-title">Deltas (izmjene)</h2>
+      <p class="modal-text">Prikaz promjena nakon zadatog vremena.</p>
+
+      <div id="deltasList" class="deltas-list" aria-live="polite"></div>
+
+      <div class="modal-actions">
+        <button id="btnDeltasOk" type="button" class="tool-btn secondary">OK</button>
+      </div>
+    </div>
+  </div>
+
 
   <script src="/js/EditorTeksta.js"></script>
   <script src="/js/PoziviAjaxFetch.js"></script>
-  <script src="/js/editor.js"></script>
+  <script src="/js/editor.js?v=3"></script>
 
 </body>
 </html>

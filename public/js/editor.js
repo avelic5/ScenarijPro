@@ -13,6 +13,10 @@ window.addEventListener("DOMContentLoaded", function () {
     const deleteModalConfirm = document.getElementById("btnDeleteScenarioConfirm");
     const deleteModalError = document.getElementById("deleteScenarioError");
 
+    const deltasModal = document.getElementById("deltasModal");
+    const deltasListEl = document.getElementById("deltasList");
+    const deltasOkBtn = document.getElementById("btnDeltasOk");
+
     const userIdInput = document.getElementById("api-userId");
     const scenarioIdInput = document.getElementById("api-scenarioId");
     const lineIdInput = document.getElementById("api-lineId");
@@ -36,6 +40,140 @@ window.addEventListener("DOMContentLoaded", function () {
     const projectTitleEl = document.querySelector(".project-title");
 
     let activeLineId = null;
+    let lockedLineId = null;
+    let pendingRelockLineId = null;
+    let __lockReqSeq = 0;
+    let suppressNextLoadSuccessMessage = false;
+
+    function setLineEditable(lineEl, editable) {
+        if (!lineEl || !lineEl.setAttribute) return;
+        lineEl.setAttribute("contenteditable", editable ? "true" : "false");
+    }
+
+    function setEditorEditableForLockedLine(baseLineId) {
+        if (!editorDiv?.querySelectorAll) return;
+        const baseId = Number(baseLineId);
+
+        // Sve linije su readonly dok se ne zaključa neka linija.
+        editorDiv.querySelectorAll(".scenario-line").forEach((el) => setLineEditable(el, false));
+
+        const baseEl = editorDiv.querySelector(`[data-line-id="${baseId}"]`);
+        if (!baseEl) return;
+
+        // Omogući edit za zaključanu liniju i sve "nove" linije ispod nje
+        // (do sljedeće postojeće linije sa data-line-id)
+        let current = baseEl;
+        while (current) {
+            if (current.classList?.contains("scenario-line")) {
+                setLineEditable(current, true);
+                ensureEditableLine(current);
+            }
+
+            const next = current.nextElementSibling;
+            if (!next) break;
+            if (next.hasAttribute && next.hasAttribute("data-line-id")) break;
+            current = next;
+        }
+    }
+
+    function isElementInsideLockedChunk(el) {
+        if (!el || !editorDiv?.contains || !editorDiv.contains(el)) return false;
+        const baseId = Number(lockedLineId);
+        if (!Number.isInteger(baseId) || baseId < 1) return false;
+        const baseEl = getLineElementById(baseId);
+        if (!baseEl) return false;
+        if (baseEl === el || baseEl.contains(el)) return true;
+
+        let current = baseEl.nextElementSibling;
+        while (current) {
+            if (current.hasAttribute && current.hasAttribute("data-line-id")) break;
+            if (current === el || current.contains?.(el)) return true;
+            current = current.nextElementSibling;
+        }
+        return false;
+    }
+
+    function insertNewLineAfterElement(el) {
+        if (!el) return null;
+        const newRow = document.createElement("div");
+        newRow.className = "scenario-line new-line";
+        newRow.appendChild(document.createElement("br"));
+        el.insertAdjacentElement("afterend", newRow);
+        setLineEditable(newRow, true);
+        ensureEditableLine(newRow);
+        return newRow;
+    }
+
+    function attemptLockLine(lineId, { focus, silent } = { focus: true, silent: false }) {
+        const USER_ID = getUserId();
+        let scenarioIdForLock = getScenarioIdFromUrlOrStorage();
+        scenarioIdForLock = getScenarioIdFromInputOrState(scenarioIdForLock);
+        const lid = Number(lineId);
+
+            if (!scenarioIdForLock) {
+                prikaziPoruku("Scenarij ID nije postavljen.", "error");
+            return;
+        }
+        if (!Number.isInteger(lid) || lid < 1) return;
+
+        if (!PoziviAjaxFetch || typeof PoziviAjaxFetch.lockLine !== "function") {
+            prikaziPoruku("PoziviAjaxFetch.lockLine nije dostupan.", "error");
+            return;
+        }
+
+        __lockReqSeq++;
+        const reqSeq = __lockReqSeq;
+        PoziviAjaxFetch.lockLine(scenarioIdForLock, lid, USER_ID, (status, data) => {
+            if (reqSeq !== __lockReqSeq) return;
+
+            if (status === 200) {
+                lockedLineId = lid;
+                pendingRelockLineId = null;
+                setActiveLine(lid);
+                setEditorEditableForLockedLine(lid);
+                if (focus) focusLine(lid);
+                if (!silent) prikaziPoruku(data?.message || "Linija zaključana.", "success");
+                return;
+            }
+
+            // 409: zaključana od drugog korisnika
+            if (status === 409) {
+                const lineEl = getLineElementById(lid);
+                if (lineEl) setLineEditable(lineEl, false);
+                prikaziPoruku(data?.message || "Linija je već zaključana.", "error");
+                return;
+            }
+
+            prikaziPoruku(data?.message || "Greška pri zaključavanju linije.", "error");
+        });
+    }
+
+    function releaseAllLineLocksForUser({ silent } = { silent: true }) {
+        const USER_ID = getUserId();
+        if (!Number.isInteger(USER_ID) || USER_ID < 1) return;
+
+        if (!PoziviAjaxFetch || typeof PoziviAjaxFetch.releaseLineLocks !== "function") return;
+        PoziviAjaxFetch.releaseLineLocks(USER_ID, (_status, _data) => {
+            // Namjerno bez poruke (da ne prepiše "Uspješno ažuriran scenarij")
+            if (!silent) {
+                // no-op for now
+            }
+        });
+    }
+
+    function releaseLocksOnExit() {
+        const USER_ID = getUserId();
+        if (!Number.isInteger(USER_ID) || USER_ID < 1) return;
+        try {
+            if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+                const payload = JSON.stringify({ userId: USER_ID });
+                const blob = new Blob([payload], { type: "application/json" });
+                navigator.sendBeacon("/api/locks/release", blob);
+            }
+        } catch (_) {
+            // ignore
+        }
+    }
 
     function setActiveLine(lineId) {
         const lid = Number(lineId);
@@ -94,6 +232,7 @@ window.addEventListener("DOMContentLoaded", function () {
     function getLineId() {
         const fromInput = lineIdInput ? Number(lineIdInput.value) : NaN;
         if (Number.isInteger(fromInput) && fromInput > 0) return fromInput;
+        if (Number.isInteger(Number(activeLineId)) && Number(activeLineId) > 0) return Number(activeLineId);
         return 1;
     }
 
@@ -210,11 +349,61 @@ window.addEventListener("DOMContentLoaded", function () {
 
     // Klik u editoru: postavi aktivnu liniju
     if (editorDiv) {
+        function resolveScenarioLineFromEvent(e) {
+            // In many browsers `beforeinput`/`paste` targets the root contenteditable (#editor),
+            // not the actual line. We resolve the real line via composedPath/selection.
+            const path = typeof e?.composedPath === "function" ? e.composedPath() : [];
+            for (const node of path) {
+                if (node?.classList?.contains?.("scenario-line")) return node;
+            }
+
+            const t = e?.target;
+            const direct = t?.closest ? t.closest(".scenario-line") : null;
+            if (direct) return direct;
+
+            const sel = window.getSelection?.();
+            const anchor = sel?.anchorNode || null;
+            const el = anchor && anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor;
+            return el?.closest ? el.closest(".scenario-line") : null;
+        }
+
         editorDiv.addEventListener("click", (e) => {
             const target = e.target;
             const lineEl = target?.closest ? target.closest("[data-line-id]") : null;
             const lid = Number(lineEl?.getAttribute?.("data-line-id"));
-            if (Number.isInteger(lid) && lid > 0) setActiveLine(lid);
+            if (Number.isInteger(lid) && lid > 0) {
+                setActiveLine(lid);
+                attemptLockLine(lid, { focus: true });
+            }
+        });
+
+        // Blokiraj bilo kakve izmjene van zaključanog segmenta (typing, paste, delete...).
+        editorDiv.addEventListener("beforeinput", (e) => {
+            const lineEl = resolveScenarioLineFromEvent(e);
+            if (!lineEl || !isElementInsideLockedChunk(lineEl)) {
+                e.preventDefault();
+            }
+        });
+
+        editorDiv.addEventListener("paste", (e) => {
+            const lineEl = resolveScenarioLineFromEvent(e);
+            if (!lineEl || !isElementInsideLockedChunk(lineEl)) {
+                e.preventDefault();
+            }
+        });
+
+        // Enter unutar zaključanog segmenta dodaje novu liniju ispod
+        editorDiv.addEventListener("keydown", (e) => {
+            if (e.key !== "Enter") return;
+            const lineEl = resolveScenarioLineFromEvent(e);
+            if (!lineEl) return;
+            if (!isElementInsideLockedChunk(lineEl)) return;
+
+            e.preventDefault();
+            const newRow = insertNewLineAfterElement(lineEl);
+            if (!newRow) return;
+            newRow.scrollIntoView({ block: "center" });
+            try { newRow.focus(); } catch (_) {}
         });
     }
 
@@ -247,6 +436,52 @@ window.addEventListener("DOMContentLoaded", function () {
         deleteModal.setAttribute("aria-hidden", "true");
         setDeleteModalError("");
         deleteBtn?.focus?.();
+    }
+
+    function closeDeltasModal() {
+        if (!deltasModal) return;
+        deltasModal.classList.add("hidden");
+        deltasModal.setAttribute("aria-hidden", "true");
+    }
+
+    function formatDeltaLine(delta, idx) {
+        const d = delta || {};
+        const ts = Number(d.timestamp);
+        const when = Number.isFinite(ts) && ts > 0 ? new Date(ts * 1000).toLocaleString() : "(bez vremena)";
+        const type = typeof d.type === "string" ? d.type : "unknown";
+
+        if (type === "line_update") {
+            const lineId = Number.isInteger(Number(d.lineId)) ? Number(d.lineId) : "?";
+            const nextLineId = d.nextLineId === null ? "null" : (Number.isInteger(Number(d.nextLineId)) ? Number(d.nextLineId) : "?");
+            const content = String(d.content ?? "").replace(/\s+/g, " ").trim();
+            const short = content.length > 140 ? content.slice(0, 140) + "…" : content;
+            return `${idx + 1}. [${when}] line_update | lineId=${lineId} next=${nextLineId} | ${short}`;
+        }
+
+        if (type === "char_rename") {
+            const oldName = String(d.oldName ?? "").trim();
+            const newName = String(d.newName ?? "").trim();
+            return `${idx + 1}. [${when}] char_rename | ${oldName || "?"} → ${newName || "?"}`;
+        }
+
+        return `${idx + 1}. [${when}] ${type} | ${JSON.stringify(d)}`;
+    }
+
+    function openDeltasModal(deltas, { scenarioId, since } = {}) {
+        if (!deltasModal || !deltasListEl) return;
+        const list = Array.isArray(deltas) ? deltas : [];
+
+        const header = [];
+        if (Number.isInteger(Number(scenarioId))) header.push(`Scenarij: ${scenarioId}`);
+        if (Number.isFinite(Number(since))) header.push(`Since: ${Number(since)}`);
+        const headerLine = header.length ? header.join(" | ") + "\n\n" : "";
+
+            const lines = list.length === 0 ? ["Nema promjena."] : list.map((d, idx) => formatDeltaLine(d, idx));
+        deltasListEl.textContent = headerLine + lines.join("\n");
+
+        deltasModal.classList.remove("hidden");
+        deltasModal.setAttribute("aria-hidden", "false");
+        deltasOkBtn?.focus?.();
     }
 
     // ========== helper: modalni input panel za unos uloge ==========
@@ -337,7 +572,11 @@ window.addEventListener("DOMContentLoaded", function () {
         PoziviAjaxFetch.getScenario(scenarioId, (status, data) => {
             if (status === 200) {
                 loadedScenario = data;
-                prikaziPoruku(`Učitano: scenario ${scenarioId}.`, "success");
+                if (suppressNextLoadSuccessMessage) {
+                    suppressNextLoadSuccessMessage = false;
+                } else {
+                        prikaziPoruku(`Učitano: scenarij ${scenarioId}.`, "success");
+                }
                 if (projectTitleEl && typeof data?.title === "string") {
                     const title = data.title;
                     const strong = projectTitleEl.querySelector?.("strong");
@@ -352,11 +591,23 @@ window.addEventListener("DOMContentLoaded", function () {
                 }
                 // Panel "Linije scenarija" je uklonjen; selekcija linije radi klikom u editoru.
                 renderScenarioToEditor(data);
+
+                // Po defaultu: ništa se ne može uređivati dok se ne zaključa linija.
+                lockedLineId = null;
+                setEditorEditableForLockedLine(-1);
+
                 const initialLineId = getLineId();
                 activeLineId = initialLineId;
                 focusLine(initialLineId);
+
+                // Ako smo upravo snimili liniju, pokušaj je ponovo zaključati.
+                if (Number.isInteger(Number(pendingRelockLineId)) && Number(pendingRelockLineId) > 0) {
+                    const relockId = Number(pendingRelockLineId);
+                    pendingRelockLineId = null;
+                    attemptLockLine(relockId, { focus: false, silent: true });
+                }
             } else if (status === 404) {
-                prikaziPoruku("Scenario ne postoji!", "error");
+                prikaziPoruku("Scenarij ne postoji!", "error");
             } else {
                 prikaziPoruku(data?.message || "Greska pri dohvatu scenarija.", "error");
             }
@@ -370,7 +621,11 @@ window.addEventListener("DOMContentLoaded", function () {
         }
 
         const USER_ID = getUserId();
-        const lineId = getLineId();
+        const effectiveLineId = (Number.isInteger(Number(lockedLineId)) && Number(lockedLineId) > 0)
+            ? Number(lockedLineId)
+            : getLineId();
+
+        if (lineIdInput) lineIdInput.value = String(effectiveLineId);
 
         // Ako scenario još ne postoji, uzmi trenutni sadržaj editora kao draft.
         // Ne oslanjaj se na postojanje .scenario-line elemenata (na početku ih možda nema).
@@ -400,7 +655,7 @@ window.addEventListener("DOMContentLoaded", function () {
                 scenarioId = data.id;
                 setScenarioIdEverywhere(scenarioId);
                 setScenarioIdInput(scenarioId);
-                prikaziPoruku(`Kreiran scenario ${scenarioId}.`, "success");
+                prikaziPoruku(`Kreiran scenarij ${scenarioId}.`, "success");
 
                 // Odmah snimi draft u prvu liniju (1), pa reload scenarija.
                 PoziviAjaxFetch.lockLine(scenarioId, 1, USER_ID, (lockStatus, lockData) => {
@@ -415,7 +670,12 @@ window.addEventListener("DOMContentLoaded", function () {
                             return;
                         }
 
-                        prikaziPoruku("Spaseno.", "success");
+                        prikaziPoruku("Uspješno ažuriran scenarij", "success");
+                        pendingRelockLineId = null;
+                        lockedLineId = null;
+                        setEditorEditableForLockedLine(-1);
+                        releaseAllLineLocksForUser({ silent: true });
+                        suppressNextLoadSuccessMessage = true;
                         loadScenarioIfPossible();
                     });
                 });
@@ -424,13 +684,13 @@ window.addEventListener("DOMContentLoaded", function () {
         }
 
         // 2) Ako imamo scenario, samo snimi
-        saveLine(lineId, USER_ID);
+        saveLine(effectiveLineId, USER_ID);
     }
 
     function saveLine(lineId, userId) {
         const newText = getNewTextForSelectedLine(lineId);
         if (!newText) {
-            prikaziPoruku("Ne mogu pronaći izabranu liniju u editoru. Učitaj scenario ponovo.", "error");
+            prikaziPoruku("Ne mogu pronaći izabranu liniju u editoru. Učitaj scenarij ponovo.", "error");
             return;
         }
         PoziviAjaxFetch.lockLine(scenarioId, lineId, userId, (lockStatus, lockData) => {
@@ -445,7 +705,13 @@ window.addEventListener("DOMContentLoaded", function () {
                     return;
                 }
 
-                prikaziPoruku("Spaseno.", "success");
+                    prikaziPoruku("Uspješno ažuriran scenarij", "success");
+                // Nakon Spasi: otključaj sve linije ovog korisnika.
+                pendingRelockLineId = null;
+                lockedLineId = null;
+                setEditorEditableForLockedLine(-1);
+                releaseAllLineLocksForUser({ silent: true });
+                suppressNextLoadSuccessMessage = true;
                 // reload iz backenda da dobijemo prelomljene linije
                 loadScenarioIfPossible();
             });
@@ -462,7 +728,7 @@ window.addEventListener("DOMContentLoaded", function () {
         deleteBtn.addEventListener("click", () => {
             scenarioId = getScenarioIdFromInputOrState(scenarioId);
             if (!scenarioId) {
-                prikaziPoruku("Unesite Scenario ID.", "error");
+                prikaziPoruku("Unesite Scenarij ID.", "error");
                 return;
             }
 
@@ -473,7 +739,7 @@ window.addEventListener("DOMContentLoaded", function () {
     function confirmDeleteScenario() {
         scenarioId = getScenarioIdFromInputOrState(scenarioId);
         if (!scenarioId) {
-            setDeleteModalError("Unesite Scenario ID.");
+            setDeleteModalError("Unesite Scenarij ID.");
             return;
         }
 
@@ -484,7 +750,9 @@ window.addEventListener("DOMContentLoaded", function () {
 
         PoziviAjaxFetch.deleteScenario(scenarioId, (status, data) => {
             if (status === 200) {
-                window.location.href = "/html/projects.html";
+                // replace: da Back ne vraća na obrisani scenarij
+                // cache-buster: da Projects uvijek povuče svježu listu
+                window.location.replace(`/html/projects.html?t=${Date.now()}`);
             } else {
                 setDeleteModalError(data?.message || "Greška pri brisanju scenarija.");
             }
@@ -507,12 +775,26 @@ window.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    if (deltasOkBtn) deltasOkBtn.addEventListener("click", closeDeltasModal);
+    if (deltasModal) {
+        deltasModal.addEventListener("click", (e) => {
+            if (e.target === deltasModal) closeDeltasModal();
+        });
+        document.addEventListener("keydown", (e) => {
+            if (!deltasModal || deltasModal.classList.contains("hidden")) return;
+            if (e.key === "Escape") {
+                e.preventDefault();
+                closeDeltasModal();
+            }
+        });
+    }
+
     // ========== API kontrole (S2) ==========
     if (btnApiLoadScenario) {
         btnApiLoadScenario.addEventListener("click", () => {
             scenarioId = getScenarioIdFromInputOrState(scenarioId);
             if (!scenarioId) {
-                prikaziPoruku("Unesite Scenario ID.", "error");
+                prikaziPoruku("Unesite Scenarij ID.", "error");
                 return;
             }
             loadScenarioIfPossible();
@@ -523,7 +805,7 @@ window.addEventListener("DOMContentLoaded", function () {
         btnApiUpdateStatus.addEventListener("click", () => {
             scenarioId = getScenarioIdFromInputOrState(scenarioId);
             if (!scenarioId) {
-                prikaziPoruku("Unesite Scenario ID.", "error");
+                prikaziPoruku("Unesite Scenarij ID.", "error");
                 return;
             }
             const newStatus = (statusInput?.value ?? "").trim();
@@ -539,8 +821,9 @@ window.addEventListener("DOMContentLoaded", function () {
 
             PoziviAjaxFetch.updateScenarioStatus(scenarioId, newStatus, (st, resp) => {
                 if (st === 200) {
-                    prikaziPoruku("Status ažuriran.", "success");
+                    prikaziPoruku("Uspješno ažuriran status", "success");
                     // refresh loaded scenario so UI stays consistent
+                    suppressNextLoadSuccessMessage = true;
                     loadScenarioIfPossible();
                 } else {
                     prikaziPoruku(resp?.message || "Greška pri ažuriranju statusa.", "error");
@@ -553,7 +836,7 @@ window.addEventListener("DOMContentLoaded", function () {
         btnApiLoadLine.addEventListener("click", () => {
             const lineId = getLineId();
             if (!loadedScenario) {
-                prikaziPoruku("Prvo učitajte scenario.", "error");
+                prikaziPoruku("Prvo učitajte scenarij.", "error");
                 return;
             }
             const ok = focusLine(lineId);
@@ -565,7 +848,7 @@ window.addEventListener("DOMContentLoaded", function () {
     if (btnApiInsertBelow) {
         btnApiInsertBelow.addEventListener("click", () => {
             if (!loadedScenario) {
-                prikaziPoruku("Prvo učitajte scenario.", "error");
+                prikaziPoruku("Prvo učitajte scenarij.", "error");
                 return;
             }
 
@@ -587,7 +870,7 @@ window.addEventListener("DOMContentLoaded", function () {
     if (btnApiAppendEnd) {
         btnApiAppendEnd.addEventListener("click", () => {
             if (!loadedScenario || !Array.isArray(loadedScenario.content) || loadedScenario.content.length === 0) {
-                prikaziPoruku("Prvo učitajte scenario.", "error");
+                prikaziPoruku("Prvo učitajte scenarij.", "error");
                 return;
             }
 
@@ -618,7 +901,7 @@ window.addEventListener("DOMContentLoaded", function () {
             scenarioId = getScenarioIdFromInputOrState(scenarioId);
             const lineId = getLineId();
             if (!scenarioId) {
-                prikaziPoruku("Unesite Scenario ID.", "error");
+                prikaziPoruku("Unesite Scenarij ID.", "error");
                 return;
             }
 
@@ -637,9 +920,9 @@ window.addEventListener("DOMContentLoaded", function () {
 
     if (btnApiGetDeltas) {
         btnApiGetDeltas.addEventListener("click", () => {
-            scenarioId = getScenarioIdFromInputOrState(scenarioId);
+            scenarioId = getScenarioIdFromInputOrState(scenarioId) ?? getScenarioIdFromUrlOrStorage();
             if (!scenarioId) {
-                prikaziPoruku("Unesite Scenario ID.", "error");
+                prikaziPoruku("Scenarij ID nije postavljen.", "error");
                 return;
             }
             const since = sinceInput ? Number(sinceInput.value) : 0;
@@ -650,8 +933,17 @@ window.addEventListener("DOMContentLoaded", function () {
                 }
 
                 const deltas = Array.isArray(data?.deltas) ? data.deltas : [];
-                prikaziPoruku(`Deltas: ${deltas.length} promjena. (Detalji u konzoli)`, "success");
-                console.log("deltas:", deltas);
+                prikaziPoruku(`Deltas: ${deltas.length} promjena.`, "success");
+
+                console.groupCollapsed(`Deltas | scenarij ${scenarioId} | since ${Number.isFinite(Number(since)) ? Number(since) : 0} | count ${deltas.length}`);
+                try {
+                    if (deltas.length > 0) console.table(deltas);
+                    else console.log("Nema promjena.");
+                } finally {
+                    console.groupEnd();
+                }
+
+                openDeltasModal(deltas, { scenarioId, since });
             });
         });
     }
@@ -662,7 +954,7 @@ window.addEventListener("DOMContentLoaded", function () {
             scenarioId = getScenarioIdFromInputOrState(scenarioId);
             const characterName = (charNameInput?.value || "").trim();
             if (!scenarioId) {
-                prikaziPoruku("Unesite Scenario ID.", "error");
+                prikaziPoruku("Unesite Scenarij ID.", "error");
                 return;
             }
             if (!characterName) {
@@ -684,7 +976,7 @@ window.addEventListener("DOMContentLoaded", function () {
             const oldName = (oldNameInput?.value || "").trim();
             const newName = (newNameInput?.value || "").trim();
             if (!scenarioId) {
-                prikaziPoruku("Unesite Scenario ID.", "error");
+                prikaziPoruku("Unesite Scenarij ID.", "error");
                 return;
             }
             if (!oldName || !newName) {
@@ -704,6 +996,18 @@ window.addEventListener("DOMContentLoaded", function () {
     }
 
     loadScenarioIfPossible();
+
+    // Pri izlasku iz scenarija: otključaj sve linije korisnika.
+    window.addEventListener("pagehide", releaseLocksOnExit);
+    window.addEventListener("beforeunload", releaseLocksOnExit);
+
+    // Ako je stranica vraćena iz bfcache (back/forward), DOMContentLoaded se ne okida ponovo.
+    // Ovim osiguramo da se naslov i sadržaj scenarija osvježe bez ručnog refresha.
+    window.addEventListener("pageshow", () => {
+        scenarioId = getScenarioIdFromUrlOrStorage();
+        if (scenarioId) setScenarioIdInput(scenarioId);
+        loadScenarioIfPossible();
+    });
 
     // ========== formatirajTekst dugmad ==========
     document.getElementById("btnBold").addEventListener("click", function () {

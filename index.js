@@ -85,15 +85,38 @@ async function writeScenario(id, data) {
 function chunkByWords(text) {
     const trimmed = typeof text === "string" ? text.trim() : "";
     if (trimmed.length === 0) return [""];
-    // Ukloni HTML tagove i pronađi riječi: slova s opcionalnim '-' ili '\'' unutar.
+    // Ukloni HTML tagove (oznake HTML elemenata se ne smatraju riječima).
+    // Važno: ne smijemo "izgubiti" brojeve i interpunkciju iz teksta pri spremanju,
+    // ali po definiciji riječi oni se ne broje kao riječi.
     const withoutTags = trimmed.replace(/<[^>]*>/g, " ");
-    const tokens = withoutTags.match(/[A-Za-zŠĐČĆŽšđčćž]+(?:['-][A-Za-zŠĐČĆŽšđčćž]+)*/g) || []; //vraća ili niz pogodaka ili null
-    if (tokens.length === 0) return [""];
+
+    // Riječ: slova s opcionalnim '-' ili '\'' unutar riječi.
+    // Brojevi i samostalna interpunkcija NE ulaze u broj riječi, ali ostaju u tekstu.
+    const wordRegex = /[A-Za-zŠĐČĆŽšđčćž]+(?:['-][A-Za-zŠĐČĆŽšđčćž]+)*/g;
+
+    const parts = withoutTags.split(/\s+/).filter((p) => p.length > 0);
+    if (parts.length === 0) return [""];
+
     const chunks = [];
-    for (let i = 0; i < tokens.length; i += 20) {
-        chunks.push(tokens.slice(i, i + 20).join(" "));
+    let currentParts = [];
+    let currentWordCount = 0;
+
+    for (const part of parts) {
+        const wordsInPart = (part.match(wordRegex) || []).length;
+
+        // Prelomi kad prelazimo 20 riječi, ali nikad ne ostavi prazan chunk.
+        if (currentParts.length > 0 && currentWordCount + wordsInPart > 20) {
+            chunks.push(currentParts.join(" "));
+            currentParts = [];
+            currentWordCount = 0;
+        }
+
+        currentParts.push(part);
+        currentWordCount += wordsInPart;
     }
-    return chunks;//stringovi rasporedjeni
+
+    if (currentParts.length > 0) chunks.push(currentParts.join(" "));
+    return chunks;
 }
 
 function isRoleText(text) {
@@ -319,6 +342,32 @@ app.post("/api/scenarios/:scenarioId/lines/:lineId/lock", async (req, res) => {
         return res.status(200).json({ message: "Linija je uspjesno zakljucana!" });
     } catch (err) {
         console.error("Failed to lock line", err);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+// Otključaj sve linije koje je zaključao dati korisnik (globalno, kroz sve scenarije)
+app.post("/api/locks/release", async (req, res) => {
+    const userId = Number(req.body.userId);
+
+    if (!Number.isInteger(userId) || userId < 1) {
+        return res.status(400).json({ message: "Neispravan userId" });
+    }
+
+    try {
+        await ensureStorage();
+        const locks = await readJson(LOCKS_FILE, []);
+        const before = Array.isArray(locks) ? locks.length : 0;
+        const remaining = Array.isArray(locks) ? locks.filter((l) => Number(l?.userId) !== userId) : [];
+        const released = before - remaining.length;
+
+        if (released > 0) {
+            await writeJson(LOCKS_FILE, remaining);
+        }
+
+        return res.status(200).json({ message: "Lockovi su otključani.", released });
+    } catch (err) {
+        console.error("Failed to release locks", err);
         return res.status(500).json({ message: "Internal server error" });
     }
 });

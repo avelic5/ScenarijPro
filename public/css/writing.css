@@ -33,7 +33,7 @@ body{
   align-items:center;
   gap:1rem;
   padding: .75rem 1rem;
-  height:10vh;
+  min-height:10vh;
   background: var(--header-bg);
   border-bottom: 1px solid #e9e9ee;
 }
@@ -90,6 +90,14 @@ body{
   transition: background-color .15s ease;
 }
 .mode-btn:hover{ background:#f0f0f0; } /* zahtjevana boja na hover */
+
+/* Alati u zaglavlju (zamjena za SCENA/AKCIJA/LIK/DIJALOG) */
+.header-toolbar .tool-btn{
+  font-size: .85rem;
+  padding: .5rem .9rem;
+  font-weight: 900;
+  color: var(--muted);
+}
 
 .header-right{ display:flex; justify-content:flex-end; align-items:center; gap:.5rem; }
 .save-btn{
@@ -260,16 +268,6 @@ body{
   }
   
 }
-.editor-toolbar{
-  display:flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap:.4rem;
-  padding: .5rem 1rem .25rem 1rem;
-  background: var(--header-bg);
-  border-bottom: 1px solid #e9e9ee;
-}
-
 .tool-btn{
   text-transform: uppercase;
   font-size: .75rem;
@@ -335,6 +333,20 @@ body{
   display: flex;
   justify-content: flex-end;
   gap: .5rem;
+}
+
+.deltas-list{
+  margin-top: .75rem;
+  border: 1px solid #e9e9ee;
+  border-radius: 12px;
+  padding: .6rem .75rem;
+  max-height: 50vh;
+  overflow: auto;
+  background: #fff;
+  font-family: "Courier Prime", "Courier New", monospace;
+  font-size: .9rem;
+  color: var(--text);
+  white-space: pre-wrap;
 }
 .tool-btn.secondary{
   font-weight: 500;

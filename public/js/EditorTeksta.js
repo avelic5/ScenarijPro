@@ -1,13 +1,9 @@
 let EditorTeksta = function (divRef) {
     //privatni atributi modula
-    if(divRef.contentEditable !== "true") throw new Error("Neispravan DIV, ne posjeduje contenteditable atribut!");
-    if(divRef.tagName !='DIV') throw new Error("Pogresan tip elementa!");
+    if (!divRef || divRef.tagName !== 'DIV') throw new Error("Pogresan tip elementa!");
+    if (divRef.getAttribute("contenteditable") !== "true") throw new Error("Neispravan DIV, ne posjeduje contenteditable atribut!");
  
     const slovoRegex = /[A-Za-zŠĐČĆŽšđčćž]/;
-    // funkcija: da li je sastavni dio riječi
-    function isWordChar(ch) {
-        return slovoRegex.test(ch) || ch === '-' || ch === "'";
-    }
 
     // helper: pročita "čisti" tekst iz contenteditable bez
     // vještačkih praznih linija između paragrafa.
@@ -59,91 +55,181 @@ let EditorTeksta = function (divRef) {
     }
 
     let dajBrojRijeci = function () {
-        let rez = {
+        const rez = {
             ukupno: 0,
             boldiranih: 0,
             italic: 0
         };
 
-        // stanje trenutne "logičke" riječi kroz cijeli dokument
-        let trenutnaRijec = "";
-        let wordHasLetter = false;    // da osiguramo da riječ ima makar jedno slovo
-        let wordBold = true;          // da li su svi znakovi u riječi bold
-        let wordItalic = true;        // da li su svi znakovi u riječi italic
-
-        // helper: završava trenutnu riječ (ako postoji)
-        function zavrsiRijec() {
-            if (trenutnaRijec.length > 0 && wordHasLetter) {
-                rez.ukupno++;
-
-                if (wordBold) rez.boldiranih++;
-                if (wordItalic) rez.italic++;
-            }
-            // reset za sljedeću riječ
-            trenutnaRijec = "";
-            wordHasLetter = false;
-            wordBold = true;
-            wordItalic = true;
+        function jeBlockElement(node) {
+            if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+            const blockTags = [
+                "P", "DIV", "HEADER", "SECTION", "ARTICLE", "ASIDE", "MAIN",
+                "H1", "H2", "H3", "H4", "H5", "H6", "LI"
+            ];
+            return blockTags.indexOf(node.tagName) !== -1;
         }
 
-        // rekurzivni prolazak kroz DOM
+        function boldFromComputedOrNull(el) {
+            if (!el || el.nodeType !== Node.ELEMENT_NODE) return null;
+            try {
+                const cs = window.getComputedStyle(el);
+                const fw = cs?.fontWeight;
+                if (fw === "bold" || fw === "bolder") return true;
+                const n = parseInt(String(fw), 10);
+                if (Number.isFinite(n)) return n >= 600;
+                return null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function italicFromComputedOrNull(el) {
+            if (!el || el.nodeType !== Node.ELEMENT_NODE) return null;
+            try {
+                const cs = window.getComputedStyle(el);
+                const fs = String(cs?.fontStyle || "").toLowerCase();
+                if (fs === "italic" || fs === "oblique") return true;
+                if (fs === "normal") return false;
+                return null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        // Flatten vidljiv tekst + mapiraj stil po karakteru.
+        // Ovo je bitno jer editor koristi više <div> linija i <br>.
+        const chars = [];
+        const boldFlags = [];
+        const italicFlags = [];
+
+        function pushText(txt, bold, italic) {
+            if (!txt) return;
+            for (let i = 0; i < txt.length; i++) {
+                chars.push(txt[i]);
+                boldFlags.push(Boolean(bold));
+                italicFlags.push(Boolean(italic));
+            }
+        }
+
+        function pushNewline() {
+            if (chars.length > 0 && chars[chars.length - 1] === "\n") return;
+            chars.push("\n");
+            boldFlags.push(false);
+            italicFlags.push(false);
+        }
+
         function obilazak(node, bold, italic) {
-            if (node.nodeType === Node.TEXT_NODE) { //odnosno value=3
-                // obrađujemo tekst karakter po karakter
-                let text = node.nodeValue; //ovako dolazimo do teksta
+            if (!node) return;
 
-                for (let i = 0; i < text.length; i++) {
-                    let ch = text[i];
-
-                    if (isWordChar(ch)) {
-                        // ovaj char ulazi u neku riječ
-                        let jeSlovo = slovoRegex.test(ch);
-
-
-                        if (trenutnaRijec === "") {
-                            // počinjemo novu riječ
-                            trenutnaRijec = ch;
-                            wordHasLetter = jeSlovo;
-                            // za prvu polovinu riječi preuzimamo formatiranje
-                            wordBold = bold;
-                            wordItalic = italic;
-                        } else {
-                            // nastavljamo postojeću riječ
-                            trenutnaRijec += ch;
-                            if (jeSlovo) wordHasLetter = true;
-                            // riječ će biti boldirana/italic samo ako SVI znakovi to jesu
-                            wordBold = wordBold && bold;
-                            wordItalic = wordItalic && italic;
-                        }
-                    } else {
-                        // naišli smo na razmak, tačku, zarez, itd. → kraj riječi
-                        zavrsiRijec();
-                    }
-                }
-            } else if (node.nodeType === Node.ELEMENT_NODE) {
-                // ažuriramo stanje bold/italic ako ulazimo u te tagove
-                let tag = node.tagName.toLowerCase();
-                let noviBold = bold;//novi bold koji moze ostati kao i stari
-                let noviItalic = italic;
-
-                if (tag === 'b' || tag === 'strong') noviBold = true;
-                if (tag === 'i' || tag === 'em') noviItalic = true;
-
-                // prolaz kroz djecu
-                for (let i = 0; i < node.childNodes.length; i++) {
-                    obilazak(node.childNodes[i], noviBold, noviItalic);
-                }
-            } else {
-                // druge tipove čvorova ignorišemo
+            if (node.nodeType === Node.TEXT_NODE) {
+                pushText(node.nodeValue || "", bold, italic);
                 return;
             }
+
+            if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+            const tag = (node.tagName || "").toUpperCase();
+            if (tag === "BR") {
+                pushNewline();
+                return;
+            }
+
+            // Uzimamo stanje stila iz computed style (tačno radi i za execCommand koji često pravi <span style="font-weight:bold">).
+            // Ako computed style nije dostupan, fallback je tag + naslijeđeno stanje.
+            let noviBold = bold;
+            let noviItalic = italic;
+
+            const bComp = boldFromComputedOrNull(node);
+            if (bComp !== null) {
+                noviBold = bComp;
+            } else if (tag === "B" || tag === "STRONG") {
+                noviBold = true;
+            }
+
+            const iComp = italicFromComputedOrNull(node);
+            if (iComp !== null) {
+                noviItalic = iComp;
+            } else if (tag === "I" || tag === "EM") {
+                noviItalic = true;
+            }
+
+            const prije = chars.length;
+            for (let i = 0; i < node.childNodes.length; i++) {
+                obilazak(node.childNodes[i], noviBold, noviItalic);
+            }
+
+            // Block elementi i linije u editoru moraju razdvajati riječi.
+            if (jeBlockElement(node) && chars.length > prije) {
+                pushNewline();
+            }
         }
 
-        // pokrećemo obilazak od root-a (divRef), početno bez bold/italic
         obilazak(divRef, false, false);
 
-        // ako je dokument završio usred riječi, zatvori je
-        zavrsiRijec();
+        const text = chars.join("");
+
+        // Riječ je token razdvojen razmakom/tabom/novim redom ili znakovima interpunkcije ',' i '.'.
+        // Ostali znakovi interpunkcije (npr. '?', ':') ne razdvajaju riječ.
+        const hasUnicodeLetters = (() => {
+            try {
+                return new RegExp("\\p{L}", "u").test("A");
+            } catch (_) {
+                return false;
+            }
+        })();
+
+        function tokenImaSlovo(token) {
+            if (!token) return false;
+            if (hasUnicodeLetters) {
+                try {
+                    return /\p{L}/u.test(token);
+                } catch (_) {
+                    // fallback ispod
+                }
+            }
+            for (let i = 0; i < token.length; i++) {
+                if (slovoRegex.test(token[i])) return true;
+            }
+            return false;
+        }
+
+        function jeDelimiter(ch) {
+            return ch === "," || ch === "." || /\s/.test(ch);
+        }
+
+        let tokenStart = null;
+        for (let i = 0; i <= text.length; i++) {
+            const ch = i < text.length ? text[i] : null;
+            const delimiter = ch === null ? true : jeDelimiter(ch);
+
+            if (!delimiter) {
+                if (tokenStart === null) tokenStart = i;
+                continue;
+            }
+
+            if (tokenStart !== null) {
+                const start = tokenStart;
+                const end = i; // exclusive
+                const token = text.slice(start, end);
+
+                if (tokenImaSlovo(token)) {
+                    rez.ukupno++;
+
+                    let allBold = true;
+                    let allItalic = true;
+                    for (let j = start; j < end; j++) {
+                        if (!boldFlags[j]) allBold = false;
+                        if (!italicFlags[j]) allItalic = false;
+                        if (!allBold && !allItalic) break;
+                    }
+
+                    if (allBold) rez.boldiranih++;
+                    if (allItalic) rez.italic++;
+                }
+                tokenStart = null;
+            }
+        }
 
         return rez;
     };
@@ -170,6 +256,26 @@ function jePraznaLinija(linija) {
     return linija.trim().length === 0;
 }
 
+// Da li linija na indeksu i izgleda kao uloga ima makar jednu liniju govora
+// prije nego što se naiđe na prekid (prazno / nova uloga / naslov scene / kraj).
+// Linije koje su u potpunosti u zagradama se ignorišu (ne računaju se kao govor).
+function imaGovorNakonUloge(linije, idxUloge) {
+    if (!Array.isArray(linije)) return false;
+    let j = idxUloge + 1;
+    while (j < linije.length) {
+        const l = linije[j];
+        if (jePraznaLinija(l)) return false;
+        if (jeNaslovScene(l)) return false;
+        if (jesuLiSpaceIliVelikoSlovo(l)) return false;
+        if (jeLinijaUZagradama(l)) {
+            j++;
+            continue;
+        }
+        return true;
+    }
+    return false;
+}
+
 
 
 
@@ -178,42 +284,9 @@ function jePraznaLinija(linija) {
         let recenice = procitajCistiTekst(divRef).split("\n");
         for (let i = 0; i < recenice.length; i++) {
             // trenutna linija potencijalno ime uloge
-            if (jesuLiSpaceIliVelikoSlovo(recenice[i])) {
-                // potrazi prvu nepráznu liniju ispod koja nije samo zagrada
-                let j = i + 1;
-                // preskoci prazne
-                while (j < recenice.length && jePraznaLinija(recenice[j])) j++;
-
-                let imaGovora = false;
-
-                // traži prvi relevantan sadržaj nakon eventualnih zagrada
-                while (j < recenice.length) {
-                    let lin = recenice[j];
-
-                    // ako naletiš na novi naslov scene ili novi red koji izgleda kao uloga -> nema govora
-                    if (jeNaslovScene(lin) || jesuLiSpaceIliVelikoSlovo(lin)) {
-                        break;
-                    }
-
-                    // ako je cijela linija u zagradama, smatra se scenskom napomenom i preskače se
-                    if (jeLinijaUZagradama(lin)) {
-                        j++;
-                        // preskoči eventualne prazne linije nakon zagrade
-                        while (j < recenice.length && jePraznaLinija(recenice[j])) j++;
-                        continue;
-                    }
-
-                    // inače imamo stvarni govor
-                    if (!jePraznaLinija(lin)) {
-                        imaGovora = true;
-                    }
-                    break;
-                }
-
-                if (imaGovora) {
+            if (jesuLiSpaceIliVelikoSlovo(recenice[i]) && imaGovorNakonUloge(recenice, i)) {
                     let ime = recenice[i].trim();
                     if (!provjeraPostojiLi(uloge, ime)) uloge.push(ime);
-                }
             }
         }
         return uloge;
@@ -273,10 +346,7 @@ function jePraznaLinija(linija) {
 
     // prvo: pronađi sve validne uloge (isto pravilo kao u dajUloge)
     for (let i = 0; i < recenice.length; i++) {
-        if (jesuLiSpaceIliVelikoSlovo(recenice[i]) &&
-            i + 1 < recenice.length &&
-            !jePraznaLinija(recenice[i + 1]) &&
-            !jesuLiSpaceIliVelikoSlovo(recenice[i + 1])) {
+        if (jesuLiSpaceIliVelikoSlovo(recenice[i]) && imaGovorNakonUloge(recenice, i)) {
 
             let ime = recenice[i].trim();
 
@@ -355,27 +425,21 @@ let brojLinijaTeksta = function (uloga) {
             let ime = linija.trim();
 
             if (ime === trazena) {
-                // provjera da li je uopšte validna uloga (da ispod ima govor)
-                if (i + 1 < recenice.length &&
-                    !jePraznaLinija(recenice[i + 1]) &&
-                    !jesuLiSpaceIliVelikoSlovo(recenice[i + 1])) {
+                // ulazimo u blok govora (linije u zagradama ne brojimo)
+                for (let j = i + 1; j < recenice.length; j++) {
+                    let lin = recenice[j];
 
-                    // ulazimo u blok govora
-                    for (let j = i + 1; j < recenice.length; j++) {
-                        let lin = recenice[j];
+                    if (jePraznaLinija(lin)) break;
+                    if (jeNaslovScene(lin)) break;
+                    if (jesuLiSpaceIliVelikoSlovo(lin)) break;
 
-                        if (jePraznaLinija(lin)) break;
-                        if (jeNaslovScene(lin)) break;
-                        if (jesuLiSpaceIliVelikoSlovo(lin)) break;
-
-                        if (jeLinijaUZagradama(lin)) {
-                            // scenska napomena, ne brojimo, ali ne prekidamo blok
-                            continue;
-                        }
-
-                        // linija govora ove uloge
-                        ukupno++;
+                    if (jeLinijaUZagradama(lin)) {
+                        // scenska napomena, ne brojimo, ali ne prekidamo blok
+                        continue;
                     }
+
+                    // linija govora ove uloge
+                    ukupno++;
                 }
             }
         }
@@ -423,10 +487,7 @@ function jeAkcijskiSegment(linija) {
         }
 
         // početak replike (ime uloge + linije govora)
-        if (jesuLiSpaceIliVelikoSlovo(linija) &&
-            i + 1 < recenice.length &&
-            !jePraznaLinija(recenice[i + 1]) &&
-            !jesuLiSpaceIliVelikoSlovo(recenice[i + 1])) {
+        if (jesuLiSpaceIliVelikoSlovo(linija) && imaGovorNakonUloge(recenice, i)) {
 
             let imeUloge = linija.trim();
             let linijeReplike = [];
@@ -654,10 +715,7 @@ function jeAkcijskiSegment(linija) {
         }
 
         // početak replike (ime uloge + linije govora)
-        if (jesuLiSpaceIliVelikoSlovo(linija) &&
-            i + 1 < recenice.length &&
-            !jePraznaLinija(recenice[i + 1]) &&
-            !jesuLiSpaceIliVelikoSlovo(recenice[i + 1])) {
+        if (jesuLiSpaceIliVelikoSlovo(linija) && imaGovorNakonUloge(recenice, i)) {
 
             let imeUloge = linija.trim();
             let linijeReplike = [];

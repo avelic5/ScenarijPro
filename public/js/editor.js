@@ -575,7 +575,13 @@ window.addEventListener("DOMContentLoaded", function () {
                 if (suppressNextLoadSuccessMessage) {
                     suppressNextLoadSuccessMessage = false;
                 } else {
+                    // Ne prepisuj postojeće važne poruke (npr. nakon promjene imena)
+                    // osim ako je poruka prazna ili je i sama "Učitano".
+                    const trenutnaPoruka = String(porukeDiv?.textContent || "").trim();
+                    const jeUcitanoPoruka = /^U\s*čitano\s*:/i.test(trenutnaPoruka) || /^Ucitano\s*:/i.test(trenutnaPoruka);
+                    if (trenutnaPoruka.length === 0 || jeUcitanoPoruka) {
                         prikaziPoruku(`Učitano: scenarij ${scenarioId}.`, "success");
+                    }
                 }
                 if (projectTitleEl && typeof data?.title === "string") {
                     const title = data.title;
@@ -986,7 +992,8 @@ window.addEventListener("DOMContentLoaded", function () {
 
             PoziviAjaxFetch.updateCharacter(scenarioId, USER_ID, oldName, newName, (status, data) => {
                 if (status === 200) {
-                    prikaziPoruku(data?.message || "Ime lika promijenjeno.", "success");
+                    prikaziPoruku("Uspjesno ste promijenili ime lika.", "success");
+                    suppressNextLoadSuccessMessage = true;
                     loadScenarioIfPossible();
                 } else {
                     prikaziPoruku(data?.message || "Greška pri promjeni imena.", "error");

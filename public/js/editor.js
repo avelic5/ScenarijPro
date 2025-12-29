@@ -44,6 +44,8 @@ window.addEventListener("DOMContentLoaded", function () {
     let pendingRelockLineId = null;
     let __lockReqSeq = 0;
     let suppressNextLoadSuccessMessage = false;
+    let pendingDeletedLineIds = new Set();
+    let pendingDeletedScenarioId = null;
 
     function setLineEditable(lineEl, editable) {
         if (!lineEl || !lineEl.setAttribute) return;
@@ -265,6 +267,126 @@ window.addEventListener("DOMContentLoaded", function () {
         return String(text ?? "").replace(/\r\n/g, "\n").replace(/\n+/g, " ");
     }
 
+    // Wrap pravilo (Spirala 2): prelamanje na max 20 riječi.
+    // Definicija riječi mora biti ista kao na backend-u:
+    // - HTML tagovi se ignorišu za brojanje riječi
+    // - riječ: slova (uklj. ŠĐČĆŽ) sa opcionalnim '-' ili '\'' unutar riječi
+    // - brojevi i interpunkcija se ne broje kao riječi, ali ostaju u tekstu
+    function chunkByWordsClient(text) {
+        const trimmed = typeof text === "string" ? text.trim() : "";
+        if (trimmed.length === 0) return [""];
+
+        const withoutTags = trimmed.replace(/<[^>]*>/g, " ");
+        const wordRegex = /[A-Za-zŠĐČĆŽšđčćž]+(?:['-][A-Za-zŠĐČĆŽšđčćž]+)*/g;
+
+        const parts = withoutTags.split(/\s+/).filter((p) => p.length > 0);
+        if (parts.length === 0) return [""];
+
+        const chunks = [];
+        let currentParts = [];
+        let currentWordCount = 0;
+
+        for (const part of parts) {
+            const wordsInPart = (part.match(wordRegex) || []).length;
+
+            if (currentParts.length > 0 && currentWordCount + wordsInPart > 20) {
+                chunks.push(currentParts.join(" "));
+                currentParts = [];
+                currentWordCount = 0;
+            }
+
+            currentParts.push(part);
+            currentWordCount += wordsInPart;
+        }
+
+        if (currentParts.length > 0) chunks.push(currentParts.join(" "));
+        return chunks.length > 0 ? chunks : [""];
+    }
+
+    function resolveBaseScenarioLineEl(el) {
+        if (!el) return null;
+        if (el?.classList?.contains?.("scenario-line") && el?.hasAttribute?.("data-line-id")) return el;
+        // Ako je klik/paste u new-line, baza je prethodna linija sa data-line-id
+        let cur = el;
+        while (cur && cur !== editorDiv) {
+            if (cur?.classList?.contains?.("scenario-line") && cur?.hasAttribute?.("data-line-id")) return cur;
+            cur = cur.previousElementSibling;
+        }
+        return null;
+    }
+
+    function collectEditableChunkEls(baseEl) {
+        const els = [];
+        if (!baseEl) return els;
+        let current = baseEl;
+        while (current) {
+            if (!current?.classList?.contains?.("scenario-line")) break;
+            els.push(current);
+
+            const next = current.nextElementSibling;
+            if (!next) break;
+            if (next.hasAttribute && next.hasAttribute("data-line-id")) break;
+            current = next;
+        }
+        return els;
+    }
+
+    function ensureNewLineAfterElement(el) {
+        if (!el || !el.insertAdjacentElement) return null;
+        const newRow = document.createElement("div");
+        newRow.className = "scenario-line new-line";
+        newRow.appendChild(document.createElement("br"));
+        el.insertAdjacentElement("afterend", newRow);
+        ensureEditableLine(newRow);
+        return newRow;
+    }
+
+    function applyWrapToChunk(baseEl) {
+        if (!baseEl) return;
+
+        const els = collectEditableChunkEls(baseEl);
+        if (els.length === 0) return;
+
+        // Spoji sav tekst iz chunk-a u jednu liniju, pa ga prelamaj.
+        const joined = els
+            .map((el) => normalizeLineText(el.innerText ?? el.textContent ?? ""))
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+        const chunks = chunkByWordsClient(joined);
+        if (!Array.isArray(chunks) || chunks.length === 0) return;
+
+        // Ako nema preloma (<=20 riječi), ostavi samo prvu liniju i obriši višak new-line.
+        // Ako ima, rasporedi chunkove po postojećim/new-line elementima.
+        const neededCount = Math.max(1, chunks.length);
+
+        // Update postojeće koliko možemo
+        for (let i = 0; i < Math.min(els.length, neededCount); i++) {
+            els[i].textContent = chunks[i] ?? "";
+            ensureEditableLine(els[i]);
+        }
+
+        // Dodaj nove linije ako treba
+        let lastEl = els[Math.min(els.length, neededCount) - 1] || els[els.length - 1];
+        for (let i = els.length; i < neededCount; i++) {
+            lastEl = ensureNewLineAfterElement(lastEl);
+            if (!lastEl) break;
+            lastEl.textContent = chunks[i] ?? "";
+            ensureEditableLine(lastEl);
+        }
+
+        // Ukloni višak new-line elemenata (nikad ne briši sljedeću "stvarnu" liniju)
+        if (els.length > neededCount) {
+            for (let i = neededCount; i < els.length; i++) {
+                const el = els[i];
+                if (el && !el.hasAttribute("data-line-id")) {
+                    el.remove();
+                }
+            }
+        }
+    }
+
     function getNewTextForSelectedLine(lineId) {
         const startEl = getLineElementById(lineId);
         if (!startEl) return null;
@@ -380,7 +502,45 @@ window.addEventListener("DOMContentLoaded", function () {
         // Blokiraj bilo kakve izmjene van zaključanog segmenta (typing, paste, delete...).
         editorDiv.addEventListener("beforeinput", (e) => {
             const lineEl = resolveScenarioLineFromEvent(e);
-            if (!lineEl || !isElementInsideLockedChunk(lineEl)) {
+
+            // Ako uopšte nismo na liniji, ne dozvoli izmjene.
+            if (!lineEl) {
+                e.preventDefault();
+                return;
+            }
+
+            // Ne dozvoli izmjene van zaključanog segmenta.
+            if (!isElementInsideLockedChunk(lineEl)) {
+                e.preventDefault();
+                return;
+            }
+
+            // Ako postoji selekcija koja prelazi van zaključanog segmenta, blokiraj.
+            // Ovo sprječava slučaj gdje Delete obriše cijeli editor.
+            try {
+                const sel = window.getSelection?.();
+                if (sel && sel.rangeCount > 0) {
+                    const r = sel.getRangeAt(0);
+                    const startNode = r.startContainer;
+                    const endNode = r.endContainer;
+                    const startEl = startNode?.nodeType === Node.TEXT_NODE ? startNode.parentElement : startNode;
+                    const endEl = endNode?.nodeType === Node.TEXT_NODE ? endNode.parentElement : endNode;
+                    const startLine = startEl?.closest ? startEl.closest(".scenario-line") : null;
+                    const endLine = endEl?.closest ? endEl.closest(".scenario-line") : null;
+
+                    // Ako se selekcija ne može mapirati na linije, tretiraj kao rizično i blokiraj.
+                    if (!startLine || !endLine) {
+                        e.preventDefault();
+                        return;
+                    }
+
+                    if (!isElementInsideLockedChunk(startLine) || !isElementInsideLockedChunk(endLine)) {
+                        e.preventDefault();
+                        return;
+                    }
+                }
+            } catch (_) {
+                // ako ne možemo sigurno utvrditi, radije blokiraj nego obriši sve
                 e.preventDefault();
             }
         });
@@ -389,21 +549,105 @@ window.addEventListener("DOMContentLoaded", function () {
             const lineEl = resolveScenarioLineFromEvent(e);
             if (!lineEl || !isElementInsideLockedChunk(lineEl)) {
                 e.preventDefault();
+                return;
+            }
+
+            // Ne dozvoli paste ako selekcija ide van zaključanog segmenta.
+            try {
+                const sel = window.getSelection?.();
+                if (sel && sel.rangeCount > 0) {
+                    const r = sel.getRangeAt(0);
+                    const startNode = r.startContainer;
+                    const endNode = r.endContainer;
+                    const startEl = startNode?.nodeType === Node.TEXT_NODE ? startNode.parentElement : startNode;
+                    const endEl = endNode?.nodeType === Node.TEXT_NODE ? endNode.parentElement : endNode;
+                    const startLine = startEl?.closest ? startEl.closest(".scenario-line") : null;
+                    const endLine = endEl?.closest ? endEl.closest(".scenario-line") : null;
+
+                    if (!startLine || !endLine) {
+                        e.preventDefault();
+                        return;
+                    }
+
+                    if (!isElementInsideLockedChunk(startLine) || !isElementInsideLockedChunk(endLine)) {
+                        e.preventDefault();
+                        return;
+                    }
+                }
+            } catch (_) {
+                e.preventDefault();
             }
         });
 
-        // Enter unutar zaključanog segmenta dodaje novu liniju ispod
+        // Enter unutar zaključanog segmenta dodaje novu liniju ispod.
+        // Backspace/Delete na praznoj "new-line" liniji briše taj red.
         editorDiv.addEventListener("keydown", (e) => {
-            if (e.key !== "Enter") return;
+            const key = e?.key;
+            if (key !== "Enter" && key !== "Backspace" && key !== "Delete") return;
+
             const lineEl = resolveScenarioLineFromEvent(e);
             if (!lineEl) return;
             if (!isElementInsideLockedChunk(lineEl)) return;
 
+            if (key === "Enter") {
+                e.preventDefault();
+                const newRow = insertNewLineAfterElement(lineEl);
+                if (!newRow) return;
+                newRow.scrollIntoView({ block: "center" });
+                try { newRow.focus(); } catch (_) {}
+                return;
+            }
+
+            // Brisanje prazne linije: samo za privremene linije (bez data-line-id).
+            const isRealLine = lineEl.hasAttribute && lineEl.hasAttribute("data-line-id");
+
+            const raw = lineEl.innerText ?? lineEl.textContent ?? "";
+            const normalized = normalizeLineText(raw).replace(/\s+/g, " ").trim();
+            if (normalized.length > 0) return;
+
             e.preventDefault();
-            const newRow = insertNewLineAfterElement(lineEl);
-            if (!newRow) return;
-            newRow.scrollIntoView({ block: "center" });
-            try { newRow.focus(); } catch (_) {}
+
+            // Ako je prava linija: označi je za brisanje (primijeni tek na Spasi).
+            if (isRealLine) {
+                scenarioId = getScenarioIdFromInputOrState(scenarioId) ?? getScenarioIdFromUrlOrStorage();
+                const lid = Number(lineEl.getAttribute("data-line-id"));
+                if (!scenarioId || !Number.isInteger(lid) || lid < 1) return;
+
+                pendingDeletedScenarioId = scenarioId;
+                pendingDeletedLineIds.add(lid);
+
+                const prevReal = lineEl.previousElementSibling?.closest?.("[data-line-id]");
+                const nextReal = lineEl.nextElementSibling?.closest?.("[data-line-id]");
+                const focusAfter = Number(prevReal?.getAttribute?.("data-line-id")) || Number(nextReal?.getAttribute?.("data-line-id")) || null;
+
+                lineEl.remove();
+
+                if (Number.isInteger(Number(focusAfter)) && Number(focusAfter) > 0) {
+                    activeLineId = Number(focusAfter);
+                    if (lineIdInput) lineIdInput.value = String(Number(focusAfter));
+                    focusLine(Number(focusAfter));
+                } else {
+                    activeLineId = null;
+                }
+
+                // Zaključavanje više nije validno nakon lokalnog brisanja; čekaj Spasi.
+                lockedLineId = null;
+                setEditorEditableForLockedLine(-1);
+                prikaziPoruku("Linija je označena za brisanje. Klikni Spasi da se primijeni.", "success");
+                return;
+            }
+
+            // Ako je privremena (new-line) linija: ukloni je lokalno.
+            const prev = lineEl.previousElementSibling;
+            const next = lineEl.nextElementSibling;
+            lineEl.remove();
+
+            const candidate =
+                (prev && prev.classList?.contains?.("scenario-line") ? prev : null) ||
+                (next && next.classList?.contains?.("scenario-line") ? next : null);
+            if (candidate && isElementInsideLockedChunk(candidate)) {
+                try { candidate.focus(); } catch (_) {}
+            }
         });
     }
 
@@ -548,6 +792,11 @@ window.addEventListener("DOMContentLoaded", function () {
 
     // ========== backend povezivanje (PoziviAjaxFetch) ==========
     let scenarioId = getScenarioIdFromUrlOrStorage();
+    let deltasPollTimer = null;
+    let deltasPollInFlight = false;
+    let deltasSinceTs = Math.floor(Date.now() / 1000);
+    let hasPendingRemoteChanges = false;
+    let hasShownRemoteChangesMsg = false;
 
     // inicijalno popuni forme iz storage/url
     if (scenarioId) setScenarioIdInput(scenarioId);
@@ -572,6 +821,17 @@ window.addEventListener("DOMContentLoaded", function () {
         PoziviAjaxFetch.getScenario(scenarioId, (status, data) => {
             if (status === 200) {
                 loadedScenario = data;
+
+                // Novi reload poništava sve lokalne (ne-snimljene) brisanja.
+                pendingDeletedLineIds = new Set();
+                pendingDeletedScenarioId = scenarioId;
+
+                // Nakon uspješnog učitavanja: resetuj polling state.
+                // Polling prati samo nove promjene nakon ovog momenta.
+                deltasSinceTs = Math.floor(Date.now() / 1000);
+                hasPendingRemoteChanges = false;
+                hasShownRemoteChangesMsg = false;
+
                 if (suppressNextLoadSuccessMessage) {
                     suppressNextLoadSuccessMessage = false;
                 } else {
@@ -618,6 +878,69 @@ window.addEventListener("DOMContentLoaded", function () {
                 prikaziPoruku(data?.message || "Greska pri dohvatu scenarija.", "error");
             }
         });
+    }
+
+    function canAutoRefreshFromDeltas() {
+        // Ne refreshaj dok korisnik uređuje (zaključana linija) ili ima staging brisanja.
+        if (Number.isInteger(Number(lockedLineId)) && Number(lockedLineId) > 0) return false;
+        if (pendingDeletedLineIds && pendingDeletedLineIds.size > 0) return false;
+        return true;
+    }
+
+    function startDeltasPolling() {
+        if (!PoziviAjaxFetch || typeof PoziviAjaxFetch.getDeltas !== "function") return;
+
+        if (deltasPollTimer) {
+            clearInterval(deltasPollTimer);
+            deltasPollTimer = null;
+        }
+
+        // Intuitivan interval (nije realtime): 5 sekundi.
+        deltasPollTimer = setInterval(() => {
+            const sid = getScenarioIdFromInputOrState(scenarioId) ?? getScenarioIdFromUrlOrStorage();
+            if (!sid) return;
+            if (deltasPollInFlight) return;
+
+            deltasPollInFlight = true;
+            const since = Number.isFinite(Number(deltasSinceTs)) ? Number(deltasSinceTs) : 0;
+            PoziviAjaxFetch.getDeltas(sid, since, (status, data) => {
+                deltasPollInFlight = false;
+                if (status !== 200) return;
+
+                const deltas = Array.isArray(data?.deltas) ? data.deltas : [];
+                if (deltas.length === 0) return;
+
+                // Pomjeri since na najveći timestamp.
+                let maxTs = since;
+                for (const d of deltas) {
+                    const ts = Number(d?.timestamp);
+                    if (Number.isFinite(ts) && ts > maxTs) maxTs = ts;
+                }
+                deltasSinceTs = maxTs;
+
+                hasPendingRemoteChanges = true;
+
+                if (canAutoRefreshFromDeltas()) {
+                    suppressNextLoadSuccessMessage = true;
+                    loadScenarioIfPossible();
+                    return;
+                }
+
+                // Ako ne možemo refreshati (korisnik trenutno edita), prikaži poruku samo jednom.
+                if (!hasShownRemoteChangesMsg) {
+                    hasShownRemoteChangesMsg = true;
+                    prikaziPoruku("Stigle su promjene drugih korisnika. Spasi/otključaj pa će se učitati.", "success");
+                }
+            });
+        }, 5000);
+    }
+
+    function stopDeltasPolling() {
+        if (deltasPollTimer) {
+            clearInterval(deltasPollTimer);
+            deltasPollTimer = null;
+        }
+        deltasPollInFlight = false;
     }
 
     async function ensureScenarioThenSave() {
@@ -694,32 +1017,101 @@ window.addEventListener("DOMContentLoaded", function () {
     }
 
     function saveLine(lineId, userId) {
-        const newText = getNewTextForSelectedLine(lineId);
-        if (!newText) {
-            prikaziPoruku("Ne mogu pronaći izabranu liniju u editoru. Učitaj scenarij ponovo.", "error");
-            return;
-        }
-        PoziviAjaxFetch.lockLine(scenarioId, lineId, userId, (lockStatus, lockData) => {
-            if (lockStatus !== 200) {
-                prikaziPoruku(lockData?.message || "Ne mogu zakljucati liniju.", "error");
+        // Primijeni pending brisanja tek na "Spasi".
+        const sid = getScenarioIdFromInputOrState(scenarioId) ?? getScenarioIdFromUrlOrStorage();
+        const canApplyPending =
+            sid &&
+            pendingDeletedLineIds &&
+            pendingDeletedLineIds.size > 0 &&
+            (!pendingDeletedScenarioId || Number(pendingDeletedScenarioId) === Number(sid));
+        const hadPendingDeletes = Boolean(canApplyPending);
+
+        const applyPendingDeletesThen = (after) => {
+            if (!canApplyPending) {
+                after?.(true);
+                return;
+            }
+            if (!PoziviAjaxFetch || typeof PoziviAjaxFetch.deleteLine !== "function") {
+                prikaziPoruku("PoziviAjaxFetch.deleteLine nije dostupan.", "error");
+                after?.(false);
                 return;
             }
 
-            PoziviAjaxFetch.updateLine(scenarioId, lineId, userId, newText, (upStatus, upData) => {
-                if (upStatus !== 200) {
-                    prikaziPoruku(upData?.message || "Greska pri spremanju.", "error");
+            const ids = [...pendingDeletedLineIds]
+                .map((n) => Number(n))
+                .filter((n) => Number.isInteger(n) && n > 0);
+            let idx = 0;
+
+            const step = () => {
+                if (idx >= ids.length) {
+                    after?.(true);
+                    return;
+                }
+                const delId = ids[idx];
+                PoziviAjaxFetch.lockLine(sid, delId, userId, (lockStatus, lockData) => {
+                    if (lockStatus !== 200) {
+                        prikaziPoruku(lockData?.message || "Ne mogu zakljucati liniju za brisanje.", "error");
+                        after?.(false);
+                        return;
+                    }
+                    PoziviAjaxFetch.deleteLine(sid, delId, userId, (delStatus, delData) => {
+                        if (delStatus !== 200) {
+                            prikaziPoruku(delData?.message || "Greška pri brisanju linije.", "error");
+                            after?.(false);
+                            return;
+                        }
+                        pendingDeletedLineIds.delete(delId);
+                        idx++;
+                        step();
+                    });
+                });
+            };
+            step();
+        };
+
+        applyPendingDeletesThen((ok) => {
+            if (!ok) return;
+
+            // Nakon primjene brisanja: ako nemamo validnu liniju za update,
+            // a imali smo pending brisanja, tretiraj kao "delete-only" save.
+            const newText = getNewTextForSelectedLine(lineId);
+            if (!newText) {
+                if (hadPendingDeletes) {
+                    prikaziPoruku("Uspješno ažuriran scenarij", "success");
+                    pendingRelockLineId = null;
+                    lockedLineId = null;
+                    setEditorEditableForLockedLine(-1);
+                    releaseAllLineLocksForUser({ silent: true });
+                    suppressNextLoadSuccessMessage = true;
+                    loadScenarioIfPossible();
+                    return;
+                }
+                prikaziPoruku("Ne mogu pronaći izabranu liniju u editoru. Učitaj scenarij ponovo.", "error");
+                return;
+            }
+
+            PoziviAjaxFetch.lockLine(scenarioId, lineId, userId, (lockStatus, lockData) => {
+                if (lockStatus !== 200) {
+                    prikaziPoruku(lockData?.message || "Ne mogu zakljucati liniju.", "error");
                     return;
                 }
 
+                PoziviAjaxFetch.updateLine(scenarioId, lineId, userId, newText, (upStatus, upData) => {
+                    if (upStatus !== 200) {
+                        prikaziPoruku(upData?.message || "Greska pri spremanju.", "error");
+                        return;
+                    }
+
                     prikaziPoruku("Uspješno ažuriran scenarij", "success");
-                // Nakon Spasi: otključaj sve linije ovog korisnika.
-                pendingRelockLineId = null;
-                lockedLineId = null;
-                setEditorEditableForLockedLine(-1);
-                releaseAllLineLocksForUser({ silent: true });
-                suppressNextLoadSuccessMessage = true;
-                // reload iz backenda da dobijemo prelomljene linije
-                loadScenarioIfPossible();
+                    // Nakon Spasi: otključaj sve linije ovog korisnika.
+                    pendingRelockLineId = null;
+                    lockedLineId = null;
+                    setEditorEditableForLockedLine(-1);
+                    releaseAllLineLocksForUser({ silent: true });
+                    suppressNextLoadSuccessMessage = true;
+                    // reload iz backenda da dobijemo prelomljene linije
+                    loadScenarioIfPossible();
+                });
             });
         });
     }
@@ -1003,10 +1395,15 @@ window.addEventListener("DOMContentLoaded", function () {
     }
 
     loadScenarioIfPossible();
+    startDeltasPolling();
 
     // Pri izlasku iz scenarija: otključaj sve linije korisnika.
     window.addEventListener("pagehide", releaseLocksOnExit);
     window.addEventListener("beforeunload", releaseLocksOnExit);
+
+    // Zaustavi polling kad napuštamo stranicu.
+    window.addEventListener("pagehide", stopDeltasPolling);
+    window.addEventListener("beforeunload", stopDeltasPolling);
 
     // Ako je stranica vraćena iz bfcache (back/forward), DOMContentLoaded se ne okida ponovo.
     // Ovim osiguramo da se naslov i sadržaj scenarija osvježe bez ručnog refresha.
@@ -1014,6 +1411,7 @@ window.addEventListener("DOMContentLoaded", function () {
         scenarioId = getScenarioIdFromUrlOrStorage();
         if (scenarioId) setScenarioIdInput(scenarioId);
         loadScenarioIfPossible();
+        startDeltasPolling();
     });
 
     // ========== formatirajTekst dugmad ==========
@@ -1042,6 +1440,38 @@ window.addEventListener("DOMContentLoaded", function () {
         } else {
             prikaziPoruku("Nije selektovan tekst ili selekcija nije u editoru.", "error");
         }
+
+        // Auto-wrap na 20 riječi: kad korisnik izađe iz linije (blur/focusout) ili zalijepi tekst.
+        // Radimo samo unutar zaključanog chunk-a da ne mijenjamo readonly dijelove.
+        editorDiv.addEventListener(
+            "focusout",
+            (e) => {
+                const target = e?.target;
+                if (!target?.classList?.contains?.("scenario-line")) return;
+                if (!isElementInsideLockedChunk(target)) return;
+                const baseEl = resolveBaseScenarioLineEl(target);
+                if (!baseEl) return;
+                applyWrapToChunk(baseEl);
+            },
+            true
+        );
+
+        editorDiv.addEventListener(
+            "paste",
+            (e) => {
+                const target = e?.target;
+                if (!target?.classList?.contains?.("scenario-line")) return;
+                if (!isElementInsideLockedChunk(target)) return;
+
+                // Sačekaj da browser ubaci paste sadržaj, pa wrap.
+                setTimeout(() => {
+                    const baseEl = resolveBaseScenarioLineEl(target);
+                    if (!baseEl) return;
+                    applyWrapToChunk(baseEl);
+                }, 0);
+            },
+            true
+        );
     }
 
     // ========== ostale metode modula ==========

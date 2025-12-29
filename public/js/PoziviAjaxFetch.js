@@ -3,21 +3,22 @@
 
 const PoziviAjaxFetch = (function () {
     async function parseResponseBody(response) {
-        const contentType = response.headers.get("content-type") || "";
+        const contentType = response?.headers?.get?.("content-type") || "";
         if (contentType.includes("application/json")) {
             try {
-                return await response.json();
+                const data = await response.json();
+                return typeof data === "undefined" ? {} : data;
             } catch (_) {
-                return null;
+                return {};
             }
         }
 
         // Fallback: pokusaj procitati tekst i vratiti ga kao poruku
         try {
             const text = await response.text();
-            return text ? { message: text } : null;
+            return text ? { message: text } : {};
         } catch (_) {
-            return null;
+            return {};
         }
     }
 
@@ -95,6 +96,15 @@ const PoziviAjaxFetch = (function () {
             );
         },
 
+        deleteLine: function (scenarioId, lineId, userId, callback) {
+            request(
+                "DELETE",
+                `/api/scenarios/${encodeURIComponent(scenarioId)}/lines/${encodeURIComponent(lineId)}`,
+                { userId },
+                callback
+            );
+        },
+
         lockCharacter: function (scenarioId, characterName, userId, callback) {
             request(
                 "POST",
@@ -142,3 +152,21 @@ const PoziviAjaxFetch = (function () {
         },
     };
 })();
+
+// Omogući korištenje i u browseru (global var) i u Jest/Node testovima.
+try {
+    if (typeof window !== "undefined") {
+        window.PoziviAjaxFetch = PoziviAjaxFetch;
+        window.PoziviAjax = PoziviAjaxFetch;
+    }
+} catch (_) {
+    // ignore
+}
+
+try {
+    if (typeof module !== "undefined" && module.exports) {
+        module.exports = PoziviAjaxFetch;
+    }
+} catch (_) {
+    // ignore
+}

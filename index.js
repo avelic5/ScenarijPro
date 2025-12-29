@@ -7,10 +7,26 @@ const PORT = 8080;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Nevalidan JSON body -> vrati JSON error (umjesto default HTML error stranice)
+app.use((err, _req, res, next) => {
+    const isJsonParseError =
+        err instanceof SyntaxError ||
+        err?.type === "entity.parse.failed" ||
+        err?.status === 400;
+
+    if (isJsonParseError && err?.body !== undefined) {
+        return res.status(400).json({ error: "Invalid JSON" });
+    }
+
+    return next(err);
+});
+
 // Serviraj frontend fajlove da browser radi na istoj origin domeni (bez CORS problema)
 app.use(express.static(path.join(__dirname, "public")));
 
-const DATA_DIR = path.join(__dirname, "data"); //globalna varijabla do fajla, postoji samo kroz commonJS
+const DATA_DIR = process.env.DATA_DIR
+    ? path.resolve(process.env.DATA_DIR)
+    : path.join(__dirname, "data"); //globalna varijabla do fajla, postoji samo kroz commonJS
 const SCENARIOS_DIR = path.join(DATA_DIR, "scenarios");
 const DELTAS_FILE = path.join(DATA_DIR, "deltas.json");
 const LOCKS_FILE = path.join(DATA_DIR, "locks.json");
@@ -192,7 +208,8 @@ app.post("/api/scenarios", async (req, res) => {
     try {
         await ensureStorage();
 
-        const providedTitle = typeof req.body.title === "string" ? req.body.title.trim() : ""; //typeof uvijek vraca string kao tip pod
+        const providedTitle =
+            typeof req.body?.title === "string" ? req.body.title.trim() : ""; //typeof uvijek vraca string kao tip pod
         const title = providedTitle.length > 0 ? providedTitle : "Neimenovani scenarij";
 
         const ids = await listScenarioIds();
@@ -457,6 +474,87 @@ app.put("/api/scenarios/:scenarioId/lines/:lineId", async (req, res) => {
     }
 });
 
+// Brisanje linije scenarija (zahtijeva lock na toj liniji)
+app.delete("/api/scenarios/:scenarioId/lines/:lineId", async (req, res) => {
+    const userId = Number(req.body?.userId);
+    const scenarioId = Number(req.params.scenarioId);
+    const lineId = Number(req.params.lineId);
+
+    if (!Number.isInteger(userId) || userId < 1) {
+        return res.status(400).json({ message: "Neispravan userId" });
+    }
+
+    if (!Number.isInteger(scenarioId) || scenarioId < 1) {
+        return res.status(404).json({ message: "Scenario ne postoji!" });
+    }
+
+    if (!Number.isInteger(lineId) || lineId < 1) {
+        return res.status(404).json({ message: "Linija ne postoji!" });
+    }
+
+    try {
+        await ensureStorage();
+        const scenario = await readScenario(scenarioId);
+
+        if (!scenario) {
+            return res.status(404).json({ message: "Scenario ne postoji!" });
+        }
+
+        const content = Array.isArray(scenario.content) ? scenario.content : [];
+        const target = content.find((l) => l?.lineId === lineId);
+        if (!target) {
+            return res.status(404).json({ message: "Linija ne postoji!" });
+        }
+
+        // Ne dozvoli brisanje zadnje preostale linije (editor mora uvijek imati bar jednu).
+        if (content.length <= 1) {
+            return res.status(400).json({ message: "Ne možete obrisati zadnju liniju." });
+        }
+
+        const locks = await readJson(LOCKS_FILE, []);
+        const lock = Array.isArray(locks)
+            ? locks.find((l) => l?.scenarioId === scenarioId && l?.lineId === lineId)
+            : null;
+
+        if (!lock) {
+            return res.status(409).json({ message: "Linija nije zakljucana!" });
+        }
+
+        if (Number(lock.userId) !== userId) {
+            return res.status(409).json({ message: "Linija je vec zakljucana!" });
+        }
+
+        // Preveži linked-list: prethodna.nextLineId -> target.nextLineId
+        const predecessor = content.find((l) => l?.nextLineId === lineId);
+        if (predecessor) {
+            predecessor.nextLineId = target?.nextLineId ?? null;
+        }
+
+        scenario.content = content.filter((l) => l?.lineId !== lineId);
+        await writeScenario(scenarioId, scenario);
+
+        // ukloni lock na obrisanoj liniji
+        const remainingLocks = Array.isArray(locks)
+            ? locks.filter((l) => !(l?.scenarioId === scenarioId && l?.lineId === lineId))
+            : [];
+        await writeJson(LOCKS_FILE, remainingLocks);
+
+        // delta zapis
+        const ts = Math.floor(Date.now() / 1000);
+        await appendDelta({
+            scenarioId,
+            type: "line_delete",
+            lineId,
+            timestamp: ts,
+        });
+
+        return res.status(200).json({ message: "Linija je uspjesno obrisana!" });
+    } catch (err) {
+        console.error("Failed to delete line", err);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+});
+
 // Zakljucavanje imena uloge u cijelom scenariju
 app.post("/api/scenarios/:scenarioId/characters/lock", async (req, res) => {
     const userId = Number(req.body.userId);
@@ -642,10 +740,11 @@ app.get("/api/scenarios/:scenarioId", async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 });
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+}
 
 // Brisanje scenarija
 app.delete("/api/scenarios/:scenarioId", async (req, res) => {
@@ -698,3 +797,5 @@ app.delete("/api/scenarios/:scenarioId", async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 });
+
+module.exports = app;

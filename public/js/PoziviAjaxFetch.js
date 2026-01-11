@@ -4,7 +4,9 @@
 const PoziviAjaxFetch = (function () {
     async function parseResponseBody(response) {
         const contentType = response?.headers?.get?.("content-type") || "";
-        if (contentType.includes("application/json")) {
+        // U test stubovima i nekim backend-ovima content-type može nedostajati.
+        // Ako postoji response.json(), pokušaj parsirati JSON i bez headera.
+        if (contentType.includes("application/json") || (!contentType && typeof response?.json === "function")) {
             try {
                 const data = await response.json();
                 return typeof data === "undefined" ? {} : data;

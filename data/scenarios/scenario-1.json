@@ -1,0 +1,76 @@
+{
+  "id": 1,
+  "title": "Potraga za izgubljenim ključem",
+  "content": [
+    {
+      "lineId": 1,
+      "nextLineId": 2,
+      "text": "NARATOR"
+    },
+    {
+      "lineId": 2,
+      "nextLineId": 3,
+      "text": "Sunce je polako zalazilo nad starim gradom."
+    },
+    {
+      "lineId": 4,
+      "nextLineId": 5,
+      "text": "Jesi li siguran da je ključ ostao u biblioteci?"
+    },
+    {
+      "lineId": 5,
+      "nextLineId": 6,
+      "text": "BOB"
+    },
+    {
+      "lineId": 6,
+      "nextLineId": 7,
+      "text": "To je posljednje mjesto gdje sam ga vidio prije nego što je pala noć."
+    },
+    {
+      "lineId": 7,
+      "nextLineId": 8,
+      "text": "ALICIA"
+    },
+    {
+      "lineId": 8,
+      "nextLineId": 9,
+      "text": "Moramo požuriti prije nego što čuvar zaključa glavna vrata."
+    },
+    {
+      "lineId": 9,
+      "nextLineId": 10,
+      "text": "BOB"
+    },
+    {
+      "lineId": 10,
+      "nextLineId": 11,
+      "text": "Čekaj, čuješ li taj zvuk iza polica?"
+    },
+    {
+      "lineId": 11,
+      "nextLineId": 12,
+      "text": "NARATOR"
+    },
+    {
+      "lineId": 12,
+      "nextLineId": null,
+      "text": "Iz sjene se polako pojavila nepoznata figura."
+    },
+    {
+      "lineId": 3,
+      "nextLineId": 13,
+      "text": "riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ"
+    },
+    {
+      "lineId": 13,
+      "nextLineId": 14,
+      "text": "riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ"
+    },
+    {
+      "lineId": 14,
+      "nextLineId": 4,
+      "text": "riječ riječ riječ riječ riječ"
+    }
+  ]
+}

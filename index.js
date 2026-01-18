@@ -24,6 +24,11 @@ app.use((err, _req, res, next) => {
 // Serviraj frontend fajlove da browser radi na istoj origin domeni (bez CORS problema)
 app.use(express.static(path.join(__dirname, "public")));
 
+// Defaultna ruta - preusmjeri na projects.html
+app.get("/", (_req, res) => {
+    res.sendFile(path.join(__dirname, "public", "html", "projects.html"));
+});
+
 const DATA_DIR = process.env.DATA_DIR
     ? path.resolve(process.env.DATA_DIR)
     : path.join(__dirname, "data"); //globalna varijabla do fajla, postoji samo kroz commonJS

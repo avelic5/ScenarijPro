@@ -2,11 +2,11 @@
   {
     "scenarioId": 1,
     "lineId": 1,
-    "userId": 2
+    "userId": 1
   },
   {
     "scenarioId": 1,
-    "lineId": 6,
-    "userId": 1
+    "lineId": 11,
+    "userId": 2
   }
 ]

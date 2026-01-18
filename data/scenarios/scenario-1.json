@@ -3,11 +3,6 @@
   "title": "Potraga za izgubljenim ključem",
   "content": [
     {
-      "lineId": 1,
-      "nextLineId": 2,
-      "text": "NARATOR"
-    },
-    {
       "lineId": 2,
       "nextLineId": 3,
       "text": "Sunce je polako zalazilo nad starim gradom."
@@ -30,7 +25,7 @@
     {
       "lineId": 7,
       "nextLineId": 8,
-      "text": "ALICIA"
+      "text": "ALICA"
     },
     {
       "lineId": 8,
@@ -71,6 +66,11 @@
       "lineId": 14,
       "nextLineId": 4,
       "text": "riječ riječ riječ riječ riječ"
+    },
+    {
+      "lineId": 1,
+      "nextLineId": 2,
+      "text": "NARATOR"
     }
   ]
 }

@@ -364,5 +364,34 @@
     "oldName": "ALICE",
     "newName": "ALICIA",
     "timestamp": 1768392294
+  },
+  {
+    "scenarioId": 1,
+    "type": "char_rename",
+    "oldName": "ALICIA",
+    "newName": "ALICE",
+    "timestamp": 1768485969
+  },
+  {
+    "scenarioId": 1,
+    "type": "char_rename",
+    "oldName": "ALICE",
+    "newName": "ALICIA",
+    "timestamp": 1768485984
+  },
+  {
+    "scenarioId": 1,
+    "type": "line_update",
+    "lineId": 1,
+    "nextLineId": 2,
+    "content": "NARATOR",
+    "timestamp": 1768486660
+  },
+  {
+    "scenarioId": 1,
+    "type": "char_rename",
+    "oldName": "ALICIA",
+    "newName": "ALICA",
+    "timestamp": 1768486830
   }
 ]

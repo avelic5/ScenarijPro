@@ -41,6 +41,8 @@ window.addEventListener("DOMContentLoaded", function () {
 
     let activeLineId = null;
     let lockedLineId = null;
+    let lockedCharacterName = null;  // Ime zaključanog karaktera
+    let lockedCharacterLineIds = []; // Sve linije zaključanog karaktera
     let pendingRelockLineId = null;
     let __lockReqSeq = 0;
     let suppressNextLoadSuccessMessage = false;
@@ -78,8 +80,56 @@ window.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    // Zaključaj sve linije za dati karakter
+    function setEditorEditableForLockedCharacter(lineIds) {
+        if (!editorDiv?.querySelectorAll) return;
+        
+        // Sve linije su readonly dok se ne zaključaju linije karaktera
+        editorDiv.querySelectorAll(".scenario-line").forEach((el) => setLineEditable(el, false));
+        
+        if (!Array.isArray(lineIds) || lineIds.length === 0) return;
+        
+        // Omogući edit za sve linije karaktera i linije ispod njih
+        for (const lineId of lineIds) {
+            const baseEl = editorDiv.querySelector(`[data-line-id="${lineId}"]`);
+            if (!baseEl) continue;
+            
+            let current = baseEl;
+            while (current) {
+                if (current.classList?.contains("scenario-line")) {
+                    setLineEditable(current, true);
+                    ensureEditableLine(current);
+                }
+                
+                const next = current.nextElementSibling;
+                if (!next) break;
+                if (next.hasAttribute && next.hasAttribute("data-line-id")) break;
+                current = next;
+            }
+        }
+    }
+
     function isElementInsideLockedChunk(el) {
         if (!el || !editorDiv?.contains || !editorDiv.contains(el)) return false;
+        
+        // Provjeri da li je element unutar zaključanih linija karaktera
+        if (lockedCharacterLineIds.length > 0) {
+            for (const lineId of lockedCharacterLineIds) {
+                const baseEl = getLineElementById(lineId);
+                if (!baseEl) continue;
+                if (baseEl === el || baseEl.contains(el)) return true;
+                
+                let current = baseEl.nextElementSibling;
+                while (current) {
+                    if (current.hasAttribute && current.hasAttribute("data-line-id")) break;
+                    if (current === el || current.contains?.(el)) return true;
+                    current = current.nextElementSibling;
+                }
+            }
+            return false;
+        }
+        
+        // Fallback na staru logiku za pojedinačno zaključanu liniju
         const baseId = Number(lockedLineId);
         if (!Number.isInteger(baseId) || baseId < 1) return false;
         const baseEl = getLineElementById(baseId);
@@ -103,6 +153,13 @@ window.addEventListener("DOMContentLoaded", function () {
         el.insertAdjacentElement("afterend", newRow);
         setLineEditable(newRow, true);
         ensureEditableLine(newRow);
+        
+        // Ukloni is-active sa svih linija i postavi na novu liniju
+        if (editorDiv?.querySelectorAll) {
+            editorDiv.querySelectorAll(".scenario-line.is-active").forEach((lineEl) => lineEl.classList.remove("is-active"));
+        }
+        newRow.classList.add("is-active");
+        
         return newRow;
     }
 
@@ -412,6 +469,61 @@ window.addEventListener("DOMContentLoaded", function () {
 
     let loadedScenario = null;
 
+    function isRoleTextClient(text) {
+        const t = typeof text === "string" ? text.trim() : "";
+        if (t.length === 0) return false;
+        const onlyUpperAndSpace = /^[A-ZŠĐČĆŽ ]+$/;
+        const hasLetter = /[A-ZŠĐČĆŽ]/;
+        return onlyUpperAndSpace.test(t) && hasLetter.test(t);
+    }
+
+    function findRoleLineIdsForCharacterName(characterName) {
+        const name = typeof characterName === "string" ? characterName.trim() : "";
+        if (!name) return [];
+
+        const content = Array.isArray(loadedScenario?.content) ? loadedScenario.content : [];
+        console.log("findRoleLineIdsForCharacterName - searching for:", name, "in content:", content);
+        const ids = [];
+        for (let i = 0; i < content.length; i++) {
+            const line = content[i];
+            const lineId = Number(line?.lineId);
+            const text = String(line?.text ?? "").trim();
+            if (!Number.isInteger(lineId) || lineId < 1) continue;
+            if (text !== name) continue;
+            if (!isRoleTextClient(text)) continue;
+            ids.push(lineId);
+        }
+        console.log("findRoleLineIdsForCharacterName - found ids:", ids);
+        return ids;
+    }
+
+    function lockFirstRoleLineForCharacter(characterName) {
+        const ids = findRoleLineIdsForCharacterName(characterName);
+        console.log("lockFirstRoleLineForCharacter - characterName:", characterName, "ids:", ids);
+        if (ids.length === 0) {
+            prikaziPoruku("Ime lika je zaključano, ali u scenariju nema linija s tim imenom.", "info");
+            return;
+        }
+
+        // Zaključaj SVE linije za ovaj karakter
+        lockedCharacterName = characterName;
+        lockedCharacterLineIds = ids;
+        lockedLineId = null; // Resetiraj pojedinačno zaključavanje
+        
+        // Omogući uređivanje svih linija karaktera
+        setEditorEditableForLockedCharacter(ids);
+        console.log("setEditorEditableForLockedCharacter called with ids:", ids);
+        
+        // Postavi prvu liniju kao aktivnu i fokusiraj je
+        setActiveLine(ids[0]);
+        focusLine(ids[0]);
+        
+        prikaziPoruku(
+            `Zaključano ${ids.length} linija za ulogu "${characterName}".`,
+            "success"
+        );
+    }
+
     function renderScenarioToEditor(scenario) {
         if (!editorDiv) return;
         editorDiv.innerHTML = "";
@@ -594,7 +706,16 @@ window.addEventListener("DOMContentLoaded", function () {
                 const newRow = insertNewLineAfterElement(lineEl);
                 if (!newRow) return;
                 newRow.scrollIntoView({ block: "center" });
-                try { newRow.focus(); } catch (_) {}
+                // Postavi kursor (caret) na početak nove linije
+                try {
+                    newRow.focus();
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    range.setStart(newRow, 0);
+                    range.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                } catch (_) {}
                 return;
             }
 
@@ -622,32 +743,41 @@ window.addEventListener("DOMContentLoaded", function () {
 
                 lineEl.remove();
 
-                if (Number.isInteger(Number(focusAfter)) && Number(focusAfter) > 0) {
-                    activeLineId = Number(focusAfter);
-                    if (lineIdInput) lineIdInput.value = String(Number(focusAfter));
-                    focusLine(Number(focusAfter));
-                } else {
-                    activeLineId = null;
+                // Ukloni is-active sa svih linija - kursor ostaje neaktivan
+                if (editorDiv?.querySelectorAll) {
+                    editorDiv.querySelectorAll(".scenario-line.is-active").forEach((el) => el.classList.remove("is-active"));
                 }
+                activeLineId = null;
+                if (lineIdInput) lineIdInput.value = "";
+                // Ukloni fokus sa editora
+                try {
+                    if (document.activeElement && editorDiv.contains(document.activeElement)) {
+                        document.activeElement.blur();
+                    }
+                } catch (_) {}
 
                 // Zaključavanje više nije validno nakon lokalnog brisanja; čekaj Spasi.
                 lockedLineId = null;
+                lockedCharacterName = null;
+                lockedCharacterLineIds = [];
                 setEditorEditableForLockedLine(-1);
                 prikaziPoruku("Linija je označena za brisanje. Klikni Spasi da se primijeni.", "success");
                 return;
             }
 
             // Ako je privremena (new-line) linija: ukloni je lokalno.
-            const prev = lineEl.previousElementSibling;
-            const next = lineEl.nextElementSibling;
             lineEl.remove();
 
-            const candidate =
-                (prev && prev.classList?.contains?.("scenario-line") ? prev : null) ||
-                (next && next.classList?.contains?.("scenario-line") ? next : null);
-            if (candidate && isElementInsideLockedChunk(candidate)) {
-                try { candidate.focus(); } catch (_) {}
+            // Ukloni is-active sa svih linija i ukloni fokus - kursor ostaje neaktivan
+            if (editorDiv?.querySelectorAll) {
+                editorDiv.querySelectorAll(".scenario-line.is-active").forEach((el) => el.classList.remove("is-active"));
             }
+            // Ukloni fokus sa editora
+            try {
+                if (document.activeElement && editorDiv.contains(document.activeElement)) {
+                    document.activeElement.blur();
+                }
+            } catch (_) {}
         });
     }
 
@@ -860,6 +990,8 @@ window.addEventListener("DOMContentLoaded", function () {
 
                 // Po defaultu: ništa se ne može uređivati dok se ne zaključa linija.
                 lockedLineId = null;
+                lockedCharacterName = null;
+                lockedCharacterLineIds = [];
                 setEditorEditableForLockedLine(-1);
 
                 const initialLineId = getLineId();
@@ -1002,6 +1134,8 @@ window.addEventListener("DOMContentLoaded", function () {
                         prikaziPoruku("Uspješno ažuriran scenarij", "success");
                         pendingRelockLineId = null;
                         lockedLineId = null;
+                        lockedCharacterName = null;
+                        lockedCharacterLineIds = [];
                         setEditorEditableForLockedLine(-1);
                         releaseAllLineLocksForUser({ silent: true });
                         suppressNextLoadSuccessMessage = true;
@@ -1080,6 +1214,8 @@ window.addEventListener("DOMContentLoaded", function () {
                     prikaziPoruku("Uspješno ažuriran scenarij", "success");
                     pendingRelockLineId = null;
                     lockedLineId = null;
+                    lockedCharacterName = null;
+                    lockedCharacterLineIds = [];
                     setEditorEditableForLockedLine(-1);
                     releaseAllLineLocksForUser({ silent: true });
                     suppressNextLoadSuccessMessage = true;
@@ -1106,6 +1242,8 @@ window.addEventListener("DOMContentLoaded", function () {
                     // Nakon Spasi: otključaj sve linije ovog korisnika.
                     pendingRelockLineId = null;
                     lockedLineId = null;
+                    lockedCharacterName = null;
+                    lockedCharacterLineIds = [];
                     setEditorEditableForLockedLine(-1);
                     releaseAllLineLocksForUser({ silent: true });
                     suppressNextLoadSuccessMessage = true;
@@ -1361,8 +1499,12 @@ window.addEventListener("DOMContentLoaded", function () {
             }
 
             PoziviAjaxFetch.lockCharacter(scenarioId, characterName, USER_ID, (status, data) => {
-                if (status === 200) prikaziPoruku(data?.message || "Ime lika zaključano.", "success");
-                else prikaziPoruku(data?.message || "Greška pri zaključavanju imena.", "error");
+                if (status === 200) {
+                    prikaziPoruku(data?.message || "Ime lika zaključano.", "success");
+                    lockFirstRoleLineForCharacter(characterName);
+                } else {
+                    prikaziPoruku(data?.message || "Greška pri zaključavanju imena.", "error");
+                }
             });
         });
     }

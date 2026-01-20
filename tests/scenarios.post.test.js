@@ -7,18 +7,14 @@
  * - Svi ID-evi kreću od 1 i auto-increment (scenario id, lineId)
  * - content: [{ lineId: 1, nextLineId: null, text: "" }]
  * - Odgovori su JSON
- *
- * PRILAGODI:
- * - putanju gdje exportaš Express app (../src/app ili ../app itd.)
- * - env var za data dir (DATA_DIR) kako tvoj server očekuje
  */
 
 const path = require("path");
 const fs = require("fs");
 const request = require("supertest");
 
-// ✅ PROMIJENI OVO na tačnu putanju do tvog express app-a (mora biti export app, ne listen)
 let app;
+let sequelize;
 
 const TEST_DATA_DIR = path.join(__dirname, ".data_scenarios_post");
 
@@ -32,33 +28,34 @@ function mkDirSafe(dir) {
 
 describe("POST /api/scenarios", () => {
   beforeAll(() => {
-    // Izoluj file storage u test folder
     process.env.NODE_ENV = "test";
     process.env.DATA_DIR = TEST_DATA_DIR;
 
     rmDirSafe(TEST_DATA_DIR);
     mkDirSafe(TEST_DATA_DIR);
-
-    // Učitaj app tek nakon što postaviš env (da app pokupi DATA_DIR)
-    // ✅ PROMIJENI OVO:
-    app = require("../index");
   });
 
-  beforeEach(() => {
-    // Resetuj storage prije svakog testa da ID krene od 1
+  beforeEach(async () => {
     rmDirSafe(TEST_DATA_DIR);
     mkDirSafe(TEST_DATA_DIR);
 
-    // Ako tvoj app drži cache u memoriji (npr. require-ovan JSON),
-    // možda će trebati reset modula između testova:
     jest.resetModules();
     process.env.NODE_ENV = "test";
     process.env.DATA_DIR = TEST_DATA_DIR;
+    
     app = require("../index");
+    const models = require("../models");
+    sequelize = models.sequelize;
+    
+    // Resetuj bazu prije svakog testa
+    await sequelize.sync({ force: true });
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     rmDirSafe(TEST_DATA_DIR);
+    if (sequelize) {
+      await sequelize.close();
+    }
   });
 
   const assertScenarioShape = (body) => {
@@ -87,7 +84,6 @@ describe("POST /api/scenarios", () => {
       .send({ title: "Naslov scenarija" })
       .expect(200);
 
-    // JSON response
     expect(res.headers["content-type"]).toMatch(/application\/json/i);
 
     assertScenarioShape(res.body);
@@ -109,7 +105,6 @@ describe("POST /api/scenarios", () => {
   });
 
   test("3) Ako body nije poslan (prazan request) -> 'Neimenovani scenarij'", async () => {
-    // supertest .send() bez arg obično ne šalje body
     const res = await request(app).post("/api/scenarios").expect(200);
 
     expect(res.headers["content-type"]).toMatch(/application\/json/i);
@@ -152,8 +147,6 @@ describe("POST /api/scenarios", () => {
     expect(res.headers["content-type"]).toMatch(/application\/json/i);
 
     assertScenarioShape(res.body);
-
-    // Ako TI NE radiš trim, promijeni očekivanje na "  Moj naslov  ".
     expect(res.body.title).toBe("Moj naslov");
   });
 
@@ -166,7 +159,7 @@ describe("POST /api/scenarios", () => {
     expect(res.headers["content-type"]).toMatch(/application\/json/i);
 
     assertScenarioShape(res.body);
-    expect(res.body.id).toBe(1); // server mora generisati ID, ignorisati poslani
+    expect(res.body.id).toBe(1);
     expect(res.body.title).toBe("X");
   });
 
@@ -187,7 +180,6 @@ describe("POST /api/scenarios", () => {
     expect(r1.body.id).toBe(1);
     expect(r2.body.id).toBe(2);
 
-    // content uvijek jedna prazna linija
     expect(r2.body.content).toHaveLength(1);
     expect(r2.body.content[0]).toEqual({ lineId: 1, nextLineId: null, text: "" });
   });
@@ -240,6 +232,9 @@ describe("POST /api/scenarios", () => {
     ];
 
     for (const payload of cases) {
+      // Resetuj bazu za svaki slučaj
+      await sequelize.sync({ force: true });
+      
       const res = await request(app)
         .post("/api/scenarios")
         .send(payload)
@@ -251,20 +246,13 @@ describe("POST /api/scenarios", () => {
   });
 
   test("13) Nevalidan JSON body (ako imaš JSON parser) treba vratiti JSON error (ako si implementirao error handling)", async () => {
-    // Ovo će proći samo ako u app imaš express.json() i error middleware koji vraća JSON.
-    // Ako nemaš, ovaj test možeš privremeno zakomentarisati.
     const res = await request(app)
       .post("/api/scenarios")
       .set("Content-Type", "application/json")
       .send("{ invalid json }");
 
-    // Dopuštam 400 ili 422 zavisno kako si uradio
     expect([400, 422]).toContain(res.status);
-
-    // I dalje JSON
     expect(res.headers["content-type"]).toMatch(/application\/json/i);
-
-    // Minimalno očekivanje: neki error opis
     expect(res.body).toHaveProperty("error");
   });
 });

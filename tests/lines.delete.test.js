@@ -1,45 +1,59 @@
+/**
+ * DELETE /api/scenarios/:scenarioId/lines/:lineId testovi (Jest + Supertest)
+ */
+
 const path = require("path");
 const fs = require("fs");
 const request = require("supertest");
 
-const APP_PATH = "../index";
+let app;
+let sequelize;
+let Line;
 
 const TEST_DATA_DIR = path.join(__dirname, ".data_delete_line");
 
 function rmDirSafe(dir) {
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
 }
+
 function mkDirSafe(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
-function readJson(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, "utf-8"));
-}
 
-function reloadApp() {
-  jest.resetModules();
-  process.env.NODE_ENV = "test";
-  process.env.DATA_DIR = TEST_DATA_DIR;
-  // eslint-disable-next-line global-require, import/no-dynamic-require
-  return require(APP_PATH);
-}
-
-function getScenarioFilePath(scenarioId) {
-  return path.join(TEST_DATA_DIR, "scenarios", `scenario-${scenarioId}.json`);
+async function getScenarioContent(scenarioId) {
+  const lines = await Line.findAll({
+    where: { scenarioId },
+    order: [['lineId', 'ASC']],
+  });
+  return lines.map(l => ({
+    lineId: l.lineId,
+    nextLineId: l.nextLineId,
+    text: l.text,
+  }));
 }
 
 describe("DELETE /api/scenarios/:scenarioId/lines/:lineId", () => {
-  let app;
-
-  beforeEach(() => {
+  beforeEach(async () => {
     rmDirSafe(TEST_DATA_DIR);
     mkDirSafe(TEST_DATA_DIR);
-    mkDirSafe(path.join(TEST_DATA_DIR, "scenarios"));
-    app = reloadApp();
+
+    jest.resetModules();
+    process.env.NODE_ENV = "test";
+    process.env.DATA_DIR = TEST_DATA_DIR;
+
+    app = require("../index");
+    const models = require("../models");
+    sequelize = models.sequelize;
+    Line = models.Line;
+
+    await sequelize.sync({ force: true });
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     rmDirSafe(TEST_DATA_DIR);
+    if (sequelize) {
+      await sequelize.close();
+    }
   });
 
   async function createScenario(agent, title = "S") {
@@ -90,8 +104,8 @@ describe("DELETE /api/scenarios/:scenarioId/lines/:lineId", () => {
       .send({ userId: 1 })
       .expect(200);
 
-    const scenario = readJson(getScenarioFilePath(scenarioId));
-    const byId = new Map(scenario.content.map((l) => [l.lineId, l]));
+    const content = await getScenarioContent(scenarioId);
+    const byId = new Map(content.map((l) => [l.lineId, l]));
 
     expect(byId.has(2)).toBe(false);
     expect(byId.has(1)).toBe(true);
@@ -99,5 +113,52 @@ describe("DELETE /api/scenarios/:scenarioId/lines/:lineId", () => {
     const l1 = byId.get(1);
     // linija 1 mora sada pokazivati na ono što je bilo iza linije 2
     expect([null, 3]).toContain(l1.nextLineId);
+  });
+
+  test("404 - Scenario ne postoji", async () => {
+    const agent = request(app);
+
+    const res = await agent
+      .delete("/api/scenarios/999/lines/1")
+      .send({ userId: 1 });
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ message: "Scenario ne postoji!" });
+  });
+
+  test("404 - Linija ne postoji", async () => {
+    const agent = request(app);
+    const scenarioId = await createScenario(agent, "S1");
+
+    const res = await agent
+      .delete(`/api/scenarios/${scenarioId}/lines/999`)
+      .send({ userId: 1 });
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ message: "Linija ne postoji!" });
+  });
+
+  test("409 - Linija nije zakljucana", async () => {
+    const agent = request(app);
+    const scenarioId = await createScenario(agent, "S1");
+
+    // Dodaj drugu liniju da možemo obrisati
+    await agent
+      .post(`/api/scenarios/${scenarioId}/lines/1/lock`)
+      .send({ userId: 1 })
+      .expect(200);
+
+    await agent
+      .put(`/api/scenarios/${scenarioId}/lines/1`)
+      .send({ userId: 1, newText: ["Linija1", "Linija2"] })
+      .expect(200);
+
+    // Pokušaj obrisati bez locka
+    const res = await agent
+      .delete(`/api/scenarios/${scenarioId}/lines/2`)
+      .send({ userId: 1 });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ message: "Linija nije zakljucana!" });
   });
 });

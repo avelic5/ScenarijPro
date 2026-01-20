@@ -24,7 +24,9 @@
     "test:deltas": "jest tests/deltas.get.test.js --runInBand"
   },
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "mysql2": "^3.16.1",
+    "sequelize": "^6.37.7"
   },
   "devDependencies": {
     "chai": "^6.2.2",

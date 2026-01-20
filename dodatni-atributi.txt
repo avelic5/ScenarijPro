@@ -1,0 +1,1 @@
+Nema dodatnih atributa u modelima - svi atributi su navedeni u zadatku.

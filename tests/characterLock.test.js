@@ -1,8 +1,13 @@
+/**
+ * POST /api/scenarios/:scenarioId/characters/lock testovi (Jest + Supertest)
+ */
+
 const path = require("path");
 const fs = require("fs");
 const request = require("supertest");
 
 let app;
+let sequelize;
 
 const TEST_DATA_DIR = path.join(__dirname, ".data_character_lock");
 
@@ -33,19 +38,26 @@ async function createScenario(agent, title = "S") {
 }
 
 describe("POST /api/scenarios/:scenarioId/characters/lock", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    rmDirSafe(TEST_DATA_DIR);
+    mkDirSafe(TEST_DATA_DIR);
+
     jest.resetModules();
     process.env.NODE_ENV = "test";
     process.env.DATA_DIR = TEST_DATA_DIR;
 
-    rmDirSafe(TEST_DATA_DIR);
-    mkDirSafe(TEST_DATA_DIR);
-
     app = require("../index");
+    const models = require("../models");
+    sequelize = models.sequelize;
+
+    await sequelize.sync({ force: true });
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     rmDirSafe(TEST_DATA_DIR);
+    if (sequelize) {
+      await sequelize.close();
+    }
   });
 
   test("404 - Scenario ne postoji", async () => {

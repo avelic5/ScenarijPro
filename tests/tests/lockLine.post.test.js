@@ -1,9 +1,13 @@
+/**
+ * POST /api/scenarios/:scenarioId/lines/:lineId/lock testovi (Jest + Supertest)
+ */
+
 const path = require("path");
 const fs = require("fs");
 const request = require("supertest");
 
-// ✅ PROMIJENI putanju do tvog express app-a
 let app;
+let sequelize;
 
 const TEST_DATA_DIR = path.join(__dirname, ".data_lock_tests");
 
@@ -16,7 +20,6 @@ function mkDirSafe(dir) {
 
 async function createScenario(agent, title = "Test scenario") {
   const res = await agent.post("/api/scenarios").send({ title }).expect(200);
-  // očekuje se jedna prazna linija: lineId=1
   return { scenarioId: res.body.id, firstLineId: res.body.content?.[0]?.lineId ?? 1 };
 }
 
@@ -25,29 +28,26 @@ function lockLine(agent, scenarioId, lineId, userId) {
 }
 
 describe("POST /api/scenarios/:scenarioId/lines/:lineId/lock", () => {
-  beforeAll(() => {
-    process.env.NODE_ENV = "test";
-    process.env.DATA_DIR = TEST_DATA_DIR;
-
+  beforeEach(async () => {
     rmDirSafe(TEST_DATA_DIR);
     mkDirSafe(TEST_DATA_DIR);
 
-    app = require("../../index");
-  });
-
-  beforeEach(() => {
-    rmDirSafe(TEST_DATA_DIR);
-    mkDirSafe(TEST_DATA_DIR);
-
-    // ako app kešira podatke u memoriji, ovo pomaže
     jest.resetModules();
     process.env.NODE_ENV = "test";
     process.env.DATA_DIR = TEST_DATA_DIR;
+
     app = require("../../index");
+    const models = require("../../models");
+    sequelize = models.sequelize;
+
+    await sequelize.sync({ force: true });
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     rmDirSafe(TEST_DATA_DIR);
+    if (sequelize) {
+      await sequelize.close();
+    }
   });
 
   test("1) 200: Zaključava slobodnu liniju", async () => {
@@ -128,15 +128,12 @@ describe("POST /api/scenarios/:scenarioId/lines/:lineId/lock", () => {
 
     const res = await lockLine(agent, s1.scenarioId, s1.firstLineId, 1);
 
-    // Ako ti implementacija umjesto toga vraća 200 ili 409, ovdje odluči šta želiš.
-    // Ja preporučujem 200 (idempotentno).
     expect([200, 409]).toContain(res.status);
     expect(res.headers["content-type"]).toMatch(/application\/json/i);
 
     if (res.status === 200) {
       expect(res.body).toEqual({ message: "Linija je uspjesno zakljucana!" });
     } else {
-      // ako ovo ostane 409, onda je “vec zakljucana” i za istog usera — nije idealno, ali je test tolerantniji
       expect(res.body).toEqual({ message: "Linija je vec zakljucana!" });
     }
   });
@@ -157,15 +154,12 @@ describe("POST /api/scenarios/:scenarioId/lines/:lineId/lock", () => {
     const agent = request(app);
     const s1 = await createScenario(agent, "S1");
 
-    // bez userId
     const r1 = await agent
       .post(`/api/scenarios/${s1.scenarioId}/lines/${s1.firstLineId}/lock`)
       .send({});
-    // ako ne validiraš, može pasti — pa ovdje ostavljam dopuštene kodove
     expect([200, 400, 422]).toContain(r1.status);
     expect(r1.headers["content-type"]).toMatch(/application\/json/i);
 
-    // userId kao string
     const r2 = await lockLine(agent, s1.scenarioId, s1.firstLineId, "1");
     expect([200, 400, 422]).toContain(r2.status);
     expect(r2.headers["content-type"]).toMatch(/application\/json/i);

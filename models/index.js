@@ -28,7 +28,7 @@ const Scenario = sequelize.define('Scenario', {
     defaultValue: 'Neimenovani scenarij',
   },
 }, {
-  tableName: 'scenarios',
+  tableName: 'Scenario',
   timestamps: false,
 });
 
@@ -63,7 +63,7 @@ const Line = sequelize.define('Line', {
     },
   },
 }, {
-  tableName: 'lines',
+  tableName: 'Line',
   timestamps: false,
   indexes: [
     {
@@ -128,7 +128,7 @@ const Delta = sequelize.define('Delta', {
     // Unix vrijeme promjene u sekundama
   },
 }, {
-  tableName: 'deltas',
+  tableName: 'Delta',
   timestamps: false,
 });
 
@@ -155,13 +155,11 @@ const Checkpoint = sequelize.define('Checkpoint', {
     // Unix vrijeme trenutka kreiranja checkpointa
   },
 }, {
-  tableName: 'checkpoints',
+  tableName: 'Checkpoint',
   timestamps: false,
 });
 
-// ============================================================================
 // RELACIJE
-// ============================================================================
 
 // Scenario ima mnogo linija
 Scenario.hasMany(Line, { foreignKey: 'scenarioId', onDelete: 'CASCADE' });

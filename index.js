@@ -44,6 +44,46 @@ async function initializeDatabase() {
     console.log("Uspješno povezano sa MySQL bazom podataka.");
     await sequelize.sync({ force: true });
     console.log("Tabele su uspješno kreirane.");
+
+    // Početni podaci za scenarij
+    const initialScenario = {
+      id: 1,
+      title: "Potraga za izgubljenim ključem",
+      content: [
+        { lineId: 1, nextLineId: 2, text: "NARATOR" },
+        { lineId: 2, nextLineId: 3, text: "Sunce je polako zalazilo nad starim gradom." },
+        { lineId: 4, nextLineId: 5, text: "Jesi li siguran da je ključ ostao u biblioteci?" },
+        { lineId: 5, nextLineId: 6, text: "BOB" },
+        { lineId: 6, nextLineId: 7, text: "To je posljednje mjesto gdje sam ga vidio prije nego što je pala noć." },
+        { lineId: 7, nextLineId: 8, text: "ALICIA" },
+        { lineId: 8, nextLineId: 9, text: "Moramo požuriti prije nego što čuvar zaključa glavna vrata." },
+        { lineId: 9, nextLineId: 10, text: "BOB" },
+        { lineId: 10, nextLineId: 11, text: "Čekaj, čuješ li taj zvuk iza polica?" },
+        { lineId: 11, nextLineId: 12, text: "NARATOR" },
+        { lineId: 12, nextLineId: null, text: "Iz sjene se polako pojavila nepoznata figura." },
+        { lineId: 3, nextLineId: 13, text: "riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ" },
+        { lineId: 13, nextLineId: 14, text: "riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ" },
+        { lineId: 14, nextLineId: 4, text: "riječ riječ riječ riječ riječ" },
+      ],
+    };
+
+    // Kreiraj scenarij
+    const scenario = await Scenario.create({
+      id: initialScenario.id,
+      title: initialScenario.title,
+    });
+
+    // Kreiraj sve linije za scenarij
+    const linesToCreate = initialScenario.content.map((line) => ({
+      lineId: line.lineId,
+      nextLineId: line.nextLineId,
+      text: line.text,
+      scenarioId: scenario.id,
+    }));
+
+    await Line.bulkCreate(linesToCreate);
+    console.log(`Scenarij "${initialScenario.title}" sa ${linesToCreate.length} linija uspješno kreiran.`);
+
   } catch (error) {
     console.error("Greška prilikom povezivanja sa bazom:", error);
     throw error;
@@ -342,10 +382,6 @@ app.post("/api/scenarios/:scenarioId/lines/:lineId/lock", async (req, res) => {
   const scenarioId = Number(req.params.scenarioId);
   const lineId = Number(req.params.lineId);
 
-  if (!Number.isInteger(userId) || userId < 1) {
-    return res.status(400).json({ message: "Neispravan userId" });
-  }
-
   if (!Number.isInteger(scenarioId) || scenarioId < 1) {
     return res.status(404).json({ message: "Scenario ne postoji!" });
   }
@@ -396,10 +432,6 @@ app.post("/api/scenarios/:scenarioId/lines/:lineId/lock", async (req, res) => {
 app.post("/api/locks/release", async (req, res) => {
   const userId = Number(req.body.userId);
 
-  if (!Number.isInteger(userId) || userId < 1) {
-    return res.status(400).json({ message: "Neispravan userId" });
-  }
-
   try {
     await ensureStorage();
     const locks = await readJson(LOCKS_FILE, []);
@@ -427,10 +459,6 @@ app.put("/api/scenarios/:scenarioId/lines/:lineId", async (req, res) => {
   const scenarioId = Number(req.params.scenarioId);
   const lineId = Number(req.params.lineId);
   const newText = req.body.newText;
-
-  if (!Number.isInteger(userId) || userId < 1) {
-    return res.status(400).json({ message: "Neispravan userId" });
-  }
 
   if (!Array.isArray(newText) || newText.length === 0) {
     return res
@@ -531,10 +559,6 @@ app.delete("/api/scenarios/:scenarioId/lines/:lineId", async (req, res) => {
   const scenarioId = Number(req.params.scenarioId);
   const lineId = Number(req.params.lineId);
 
-  if (!Number.isInteger(userId) || userId < 1) {
-    return res.status(400).json({ message: "Neispravan userId" });
-  }
-
   if (!Number.isInteger(scenarioId) || scenarioId < 1) {
     return res.status(404).json({ message: "Scenario ne postoji!" });
   }
@@ -627,21 +651,6 @@ app.post("/api/scenarios/:scenarioId/characters/lock", async (req, res) => {
       ? req.body.characterName.trim()
       : "";
 
-  if (!Number.isInteger(userId) || userId < 1) {
-    return res.status(400).json({ message: "Neispravan userId" });
-  }
-
-  // dozvoljena su samo velika slova i razmaci, mora imati barem jedno slovo
-  const onlyUpperAndSpace = /^[A-ZŠĐČĆŽ ]+$/;
-  const hasLetter = /[A-ZŠĐČĆŽ]/;
-  if (
-    !onlyUpperAndSpace.test(characterNameRaw) ||
-    !hasLetter.test(characterNameRaw)
-  ) {
-    //ima makar jedno podudaranje
-    return res.status(400).json({ message: "Neispravno ime lika" });
-  }
-
   try {
     await ensureStorage();
     const scenario = await Scenario.findByPk(scenarioId);
@@ -692,21 +701,6 @@ app.post("/api/scenarios/:scenarioId/characters/update", async (req, res) => {
   const newNameRaw =
     typeof req.body.newName === "string" ? req.body.newName.trim() : "";
 
-  if (!Number.isInteger(userId) || userId < 1) {
-    return res.status(400).json({ message: "Neispravan userId" });
-  }
-
-  const onlyUpperAndSpace = /^[A-ZŠĐČĆŽ ]+$/;
-  const hasLetter = /[A-ZŠĐČĆŽ]/;
-  const validOld =
-    onlyUpperAndSpace.test(oldNameRaw) && hasLetter.test(oldNameRaw);
-  const validNew =
-    onlyUpperAndSpace.test(newNameRaw) && hasLetter.test(newNameRaw);
-
-  if (!validOld || !validNew) {
-    return res.status(400).json({ message: "Neispravno ime lika" });
-  }
-
   try {
     await ensureStorage();
     const scenario = await Scenario.findByPk(scenarioId);
@@ -749,10 +743,9 @@ app.post("/api/scenarios/:scenarioId/characters/update", async (req, res) => {
     const lockedRoleLine = lineLocks.find(
       (lock) =>
         lock.scenarioId === scenarioId &&
-        roleLineIds.has(lock.lineId) &&
         lock.userId !== userId &&
         linesArray.some(
-          (l) => l.lineId === lock.lineId && l.text === oldNameRaw,
+          (l) => l.lineId === lock.lineId && l.text.includes(oldNameRaw),
         ),
     );
 
@@ -762,11 +755,12 @@ app.post("/api/scenarios/:scenarioId/characters/update", async (req, res) => {
         .json({ message: "Konflikt! Linija uloge je zakljucana!" });
     }
 
-    // Ažuriraj linije u bazi
+    // Ažuriraj linije u bazi - zamijeni sve pojave imena u svim linijama
     for (const line of linesArray) {
-      if (roleLineIds.has(line.lineId) && line.text === oldNameRaw) {
+      if (line.text.includes(oldNameRaw)) {
+        const updatedText = line.text.split(oldNameRaw).join(newNameRaw);
         await Line.update(
-          { text: newNameRaw },
+          { text: updatedText },
           { where: { scenarioId, lineId: line.lineId } },
         );
       }

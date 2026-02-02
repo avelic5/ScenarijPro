@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="hr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prijava - ScenarijPro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="/css/login.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="page">
+        <div class="card">
+            <!-- Logo i naslov -->
+            <div class="card-header">
+                <h1 class="logo">ScenarijPro</h1>
+                <hr class="rule">
+                <p class="subtitle">Prijavite se na svoj račun</p>
+            </div>
+
+            <!-- Tabs za prebacivanje između prijave i registracije -->
+            <div class="tabs">
+                <button type="button" class="tab-btn active" data-tab="login">Prijava</button>
+                <button type="button" class="tab-btn" data-tab="register">Registracija</button>
+            </div>
+
+            <!-- Login forma -->
+            <form id="loginForm" class="auth-form">
+                <div class="section section--info">
+                    <div class="field">
+                        <label for="loginEmail">Email adresa</label>
+                        <input type="email" id="loginEmail" name="email" placeholder="aldin.velic@email.com" required>
+                    </div>
+                    <div class="field">
+                        <label for="loginPassword">Lozinka</label>
+                        <input type="password" id="loginPassword" name="password" placeholder="Unesite lozinku" required>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="rememberMe" name="rememberMe">
+                        <span>Zapamti me</span>
+                    </label>
+                    <a href="#" class="forgot-link">Zaboravljena lozinka?</a>
+                </div>
+
+                <p id="loginError" class="error-message"></p>
+
+                <div class="card-footer">
+                    <button type="submit" class="primary">Prijavi se</button>
+                </div>
+            </form>
+
+            <!-- Register forma (skrivena po defaultu) -->
+            <form id="registerForm" class="auth-form hidden">
+                <div class="section section--info">
+                    <h3 class="section-title">Osnovni podaci</h3>
+                    <div class="field">
+                        <label for="registerFirstName">Ime</label>
+                        <input type="text" id="registerFirstName" name="firstName" placeholder="Vaše ime" required>
+                    </div>
+                    <div class="field">
+                        <label for="registerLastName">Prezime</label>
+                        <input type="text" id="registerLastName" name="lastName" placeholder="Vaše prezime" required>
+                    </div>
+                </div>
+
+                <div class="section section--security">
+                    <h3 class="section-title">Podaci za prijavu</h3>
+                    <div class="field">
+                        <label for="registerEmail">Email adresa</label>
+                        <input type="email" id="registerEmail" name="email" placeholder="aldin.velic@example.com" required>
+                    </div>
+                    <div class="field">
+                        <label for="registerPassword">Lozinka</label>
+                        <input type="password" id="registerPassword" name="password" placeholder="Minimalno 6 znakova" required minlength="6">
+                        <span class="hint">Lozinka mora imati minimalno 6 znakova</span>
+                    </div>
+                    <div class="field">
+                        <label for="registerConfirmPassword">Potvrda lozinke</label>
+                        <input type="password" id="registerConfirmPassword" name="confirmPassword" placeholder="Ponovite lozinku" required>
+                    </div>
+                </div>
+
+                <p id="registerError" class="error-message"></p>
+                <p id="registerSuccess" class="success-message"></p>
+
+                <div class="card-footer">
+                    <button type="submit" class="primary">Registriraj se</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/login.js"></script>
+</body>
+
+</html>

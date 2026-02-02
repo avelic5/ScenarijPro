@@ -1,8 +1,148 @@
 // editor.js
 
 let editor = null;
+let autosaveInterval = null;
+
+// Provjeri da li je korisnik prijavljen
+function checkAuth() {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) {
+        window.location.href = '/html/login.html';
+        return null;
+    }
+    try {
+        return JSON.parse(userStr);
+    } catch {
+        localStorage.removeItem('user');
+        window.location.href = '/html/login.html';
+        return null;
+    }
+}
+
+// Primijeni postavke iz localStorage na editor
+function applyEditorSettings() {
+    const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+    
+    // Primijeni temu
+    if (settings.theme === 'dark') {
+        document.body.classList.add('dark-theme');
+    } else if (settings.theme === 'auto') {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark-theme');
+        }
+    }
+    
+    // Primijeni font size
+    const editorDiv = document.getElementById('editor');
+    if (editorDiv) {
+        switch (settings.fontSize) {
+            case 'small':
+                editorDiv.style.fontSize = '0.85rem';
+                break;
+            case 'large':
+                editorDiv.style.fontSize = '1.25rem';
+                break;
+            default:
+                editorDiv.style.fontSize = '1rem';
+        }
+    }
+    
+    // Primijeni spellcheck
+    if (editorDiv && settings.spellcheck !== undefined) {
+        editorDiv.setAttribute('spellcheck', settings.spellcheck ? 'true' : 'false');
+    }
+    
+    // Primijeni kompaktan prikaz
+    if (settings.compactView) {
+        document.body.classList.add('compact-view');
+    }
+    
+    // Prikaži/sakrij word count
+    const wordCountEl = document.getElementById('wordCountDisplay');
+    if (wordCountEl) {
+        wordCountEl.style.display = settings.wordCount !== false ? 'block' : 'none';
+    }
+}
+
+// Autosave funkcionalnost
+function setupAutosave() {
+    const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+    
+    // Ako je autosave isključen, ne radi ništa
+    if (settings.autosave === false) {
+        if (autosaveInterval) {
+            clearInterval(autosaveInterval);
+            autosaveInterval = null;
+        }
+        return;
+    }
+    
+    // Default interval je 60 sekundi
+    const intervalSeconds = parseInt(settings.autosaveInterval) || 60;
+    
+    // Očisti postojeći interval
+    if (autosaveInterval) {
+        clearInterval(autosaveInterval);
+    }
+    
+    // Postavi novi interval
+    autosaveInterval = setInterval(() => {
+        const saveBtn = document.querySelector('.save-btn');
+        if (saveBtn) {
+            saveBtn.click();
+        }
+    }, intervalSeconds * 1000);
+}
+
+// Word count funkcionalnost
+function setupWordCount() {
+    const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+    
+    // Ako je word count isključen, ne prikazuj
+    if (settings.wordCount === false) return;
+    
+    // Kreiraj word count element ako ne postoji
+    let wordCountEl = document.getElementById('wordCountDisplay');
+    if (!wordCountEl) {
+        wordCountEl = document.createElement('div');
+        wordCountEl.id = 'wordCountDisplay';
+        wordCountEl.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #5B43F0; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 500; box-shadow: 0 2px 10px rgba(0,0,0,0.15); z-index: 100;';
+        document.body.appendChild(wordCountEl);
+    }
+    
+    // Funkcija za brojanje riječi
+    function updateWordCount() {
+        const editorDiv = document.getElementById('editor');
+        if (!editorDiv) return;
+        
+        const text = editorDiv.innerText || '';
+        const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+        const chars = text.length;
+        
+        wordCountEl.textContent = `${words} riječi | ${chars} znakova`;
+    }
+    
+    // Ažuriraj odmah
+    updateWordCount();
+    
+    // Ažuriraj prilikom promjena
+    const editorDiv = document.getElementById('editor');
+    if (editorDiv) {
+        editorDiv.addEventListener('input', updateWordCount);
+    }
+    
+    // Ažuriraj periodično (u slučaju da se sadržaj mijenja programski)
+    setInterval(updateWordCount, 2000);
+}
 
 window.addEventListener("DOMContentLoaded", function () {
+    // Provjeri autentifikaciju
+    const currentUser = checkAuth();
+    if (!currentUser) return;
+
+    // Primijeni spremljene postavke
+    applyEditorSettings();
+
     const editorDiv = document.getElementById("editor");
     const porukeDiv = document.getElementById("poruke");
     const saveBtn = document.querySelector(".save-btn");
@@ -1396,6 +1536,8 @@ window.addEventListener("DOMContentLoaded", function () {
 
     loadScenarioIfPossible();
     startDeltasPolling();
+    setupAutosave();
+    setupWordCount();
 
     // Pri izlasku iz scenarija: otključaj sve linije korisnika.
     window.addEventListener("pagehide", releaseLocksOnExit);

@@ -5,9 +5,71 @@ let __projectsInitialized = false;
 let __refreshProjectsScenarios = null;
 let __projectsRequestSeq = 0;
 
+// Provjeri da li je korisnik prijavljen
+function checkAuth() {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) {
+        window.location.href = '/html/login.html';
+        return null;
+    }
+    try {
+        return JSON.parse(userStr);
+    } catch {
+        localStorage.removeItem('user');
+        window.location.href = '/html/login.html';
+        return null;
+    }
+}
+
+// Postavi korisničke podatke u sidebar
+function setupUserDisplay(user) {
+    const userAvatar = document.getElementById('userAvatar');
+    const userName = document.getElementById('userName');
+    const userStatus = document.getElementById('userStatus');
+
+    if (userAvatar && user.firstName) {
+        userAvatar.textContent = user.firstName.charAt(0).toUpperCase();
+    }
+    if (userName && user.firstName && user.lastName) {
+        userName.textContent = `${user.firstName} ${user.lastName}`;
+    }
+    if (userStatus && user.role) {
+        const roleLabels = {
+            'user': 'Član',
+            'pro': 'Pro član',
+            'admin': 'Administrator'
+        };
+        userStatus.textContent = roleLabels[user.role] || 'Član';
+    }
+}
+
+// Logout funkcionalnost
+function setupLogout() {
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('user');
+            window.location.href = '/html/login.html';
+        });
+    }
+}
+
 function initProjectsPage() {
     if (__projectsInitialized) return;
     __projectsInitialized = true;
+
+    // Provjeri autentifikaciju
+    const user = checkAuth();
+    if (!user) return;
+
+    // Postavi prikaz korisnika
+    setupUserDisplay(user);
+    setupLogout();
+    
+    // Primijeni temu iz postavki
+    applyTheme();
+
     const newProjectBtn = document.querySelector(".new-project-btn");
     const createBtn = document.querySelector(".create-btn");
     const projectsGrid = document.getElementById("projectsGrid");
@@ -301,6 +363,21 @@ function initProjectsPage() {
 
     // Učitaj postojeće scenarije i prikaži ih kao kartice
     refreshScenarios(false);
+}
+
+// Primijeni temu iz postavki
+function applyTheme() {
+    const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+    
+    if (settings.theme === 'dark') {
+        document.body.classList.add('dark-theme');
+    } else if (settings.theme === 'auto') {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark-theme');
+        }
+    } else {
+        document.body.classList.remove('dark-theme');
+    }
 }
 
 // Init radi i kada je stranica vraćena iz bfcache (npr. nakon redirecta/back)

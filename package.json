@@ -24,6 +24,7 @@
     "test:deltas": "jest tests/deltas.get.test.js --runInBand"
   },
   "dependencies": {
+    "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "mysql2": "^3.16.1",
     "sequelize": "^6.37.7"

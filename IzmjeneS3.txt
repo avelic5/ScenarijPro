@@ -1,3 +1,0 @@
-1. Izmjena: Promjena porta iz 8080 u 3000
-2. Izmjena: U PoziviAJaxFetch.js je promijenjen parseResponseBody tako da pokuša response.json() i kada nema content type headera, umjesto da tada vraca {}
-3. Izmjena: Promijenjen scenarij tako da radi prema definiciji uloge iz spirale2

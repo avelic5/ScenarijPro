@@ -452,3 +452,179 @@ body{
   background:#888;
 }
 
+/* DARK THEME for writing/editor */
+body.dark-theme {
+  background-color: #1a1a2e;
+  color: #e4e4e7;
+}
+
+body.dark-theme .app-header {
+  background: #16162a;
+  border-color: #2d2d44;
+}
+
+body.dark-theme .project-title {
+  color: #e4e4e7;
+}
+
+body.dark-theme .back-btn {
+  background: #2d2d44;
+}
+
+body.dark-theme .back-btn:hover {
+  background: #8b7cf7;
+}
+
+body.dark-theme .tool-btn {
+  background: #2d2d44;
+  color: #a1a1aa;
+}
+
+body.dark-theme .tool-btn:hover {
+  background: #3d3d5c;
+  color: #e4e4e7;
+}
+
+body.dark-theme .save-btn {
+  background: #8b7cf7;
+}
+
+body.dark-theme .save-btn:hover {
+  background: #9d8fff;
+}
+
+body.dark-theme .delete-btn {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+body.dark-theme .delete-btn:hover {
+  background: #ef4444;
+}
+
+body.dark-theme .main-content {
+  background: #1e1e32;
+}
+
+body.dark-theme #editor {
+  background: #252540;
+  color: #e4e4e7;
+  border-color: #3d3d5c;
+}
+
+body.dark-theme .scenario-line {
+  border-color: #3d3d5c;
+}
+
+body.dark-theme .scenario-line:focus {
+  background: #2d2d44;
+  border-color: #8b7cf7;
+}
+
+/* Aktivna linija scenarija u dark modu */
+body.dark-theme .scenario-line.is-active {
+  background: #c4b5fd;
+  color: #1a1a2e;
+}
+
+body.dark-theme .api-panel {
+  background: #252540;
+  border-color: #3d3d5c;
+}
+
+body.dark-theme .api-field input {
+  background: #1e1e32;
+  border-color: #3d3d5c;
+  color: #e4e4e7;
+}
+
+body.dark-theme .poruke {
+  background: #252540;
+  border-color: #3d3d5c;
+}
+
+body.dark-theme .modal-content {
+  background: #252540;
+  border-color: #3d3d5c;
+}
+
+body.dark-theme .modal-title {
+  color: #e4e4e7;
+}
+
+body.dark-theme .modal-text {
+  color: #a1a1aa;
+}
+
+body.dark-theme .scenario-line {
+  color: #e4e4e7;
+}
+
+body.dark-theme .api-field label {
+  color: #a1a1aa;
+}
+
+body.dark-theme .api-field span {
+  color: #e4e4e7;
+}
+
+body.dark-theme .btn {
+  color: #e4e4e7;
+}
+
+body.dark-theme .line-number {
+  color: #71717a;
+}
+
+body.dark-theme .character-name {
+  color: #8b7cf7;
+}
+
+body.dark-theme p,
+body.dark-theme span,
+body.dark-theme label {
+  color: #e4e4e7;
+}
+
+body.dark-theme .poruke p {
+  color: #a1a1aa;
+}
+
+/* Dark theme za aktivnu scenu - crna slova na svijetloj pozadini */
+body.dark-theme .scene-item.active {
+  background: #c4b5fd;
+}
+
+body.dark-theme .scene-item.active .scene-no,
+body.dark-theme .scene-item.active .scene-title,
+body.dark-theme .scene-item.active .scene-pages {
+  color: #1a1a2e;
+}
+
+body.dark-theme .scene-no {
+  color: #a1a1aa;
+}
+
+body.dark-theme .scene-title {
+  color: #71717a;
+}
+
+body.dark-theme .scene-pages {
+  color: #71717a;
+}
+
+/* Compact view */
+body.compact-view .scenario-line {
+  padding: 0.3rem 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+body.compact-view .api-panel {
+  padding: 0.5rem;
+}
+
+body.compact-view #editor {
+  padding: 0.75rem;
+}
+

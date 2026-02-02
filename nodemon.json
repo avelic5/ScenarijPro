@@ -1,9 +1,0 @@
-{
-  "watch": ["index.js"],
-  "ext": "js,mjs,cjs",
-  "ignore": [
-    "data/**",
-    "public/**",
-    "test/**"
-  ]
-}

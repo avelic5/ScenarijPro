@@ -1,7 +1,8 @@
 const express = require("express");
 const path = require("path");
 const fs = require("fs/promises");
-const { sequelize, Scenario, Line, Delta, Checkpoint } = require("./models");
+const crypto = require("crypto");
+const { sequelize, Scenario, Line, Delta, Checkpoint, User } = require("./models");
 
 const app = express();
 const PORT = 3000;
@@ -26,9 +27,9 @@ app.use((err, _req, res, next) => {
 // Serviraj frontend fajlove da browser radi na istoj origin domeni (bez CORS problema)
 app.use(express.static(path.join(__dirname, "public")));
 
-// Defaultna ruta - preusmjeri na projects.html
+// Defaultna ruta - preusmjeri na login.html
 app.get("/", (_req, res) => {
-  res.sendFile(path.join(__dirname, "public", "html", "projects.html"));
+  res.sendFile(path.join(__dirname, "public", "html", "login.html"));
 });
 
 const DATA_DIR = process.env.DATA_DIR
@@ -281,6 +282,230 @@ function orderContent(lines) {
   leftovers.sort((a, b) => a.lineId - b.lineId);
   return [...ordered, ...leftovers];
 }
+
+// --AUTH HELPERS--
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+function verifyPassword(password, hashedPassword) {
+  return hashPassword(password) === hashedPassword;
+}
+
+// --AUTH ROUTES--
+
+// Registracija korisnika
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const firstName = typeof req.body?.firstName === "string" ? req.body.firstName.trim() : "";
+    const lastName = typeof req.body?.lastName === "string" ? req.body.lastName.trim() : "";
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+
+    // Validacija
+    if (!firstName || !lastName) {
+      return res.status(400).json({ message: "Ime i prezime su obavezni." });
+    }
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: "Unesite ispravnu email adresu." });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Lozinka mora imati minimalno 6 znakova." });
+    }
+
+    // Provjeri da li korisnik već postoji
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(409).json({ message: "Korisnik s ovom email adresom već postoji." });
+    }
+
+    // Kreiraj korisnika
+    const hashedPassword = hashPassword(password);
+    const newUser = await User.create({
+      email,
+      password: hashedPassword,
+      firstName,
+      lastName,
+      role: 'user'
+    });
+
+    return res.status(201).json({
+      message: "Registracija uspješna!",
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        role: newUser.role
+      }
+    });
+  } catch (err) {
+    console.error("Registration error:", err);
+    return res.status(500).json({ message: "Greška pri registraciji." });
+  }
+});
+
+// Prijava korisnika
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email i lozinka su obavezni." });
+    }
+
+    // Pronađi korisnika
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(401).json({ message: "Pogrešan email ili lozinka." });
+    }
+
+    // Provjeri lozinku
+    if (!verifyPassword(password, user.password)) {
+      return res.status(401).json({ message: "Pogrešan email ili lozinka." });
+    }
+
+    return res.status(200).json({
+      message: "Prijava uspješna!",
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role
+      }
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({ message: "Greška pri prijavi." });
+  }
+});
+
+// Dohvati trenutnog korisnika (po ID-u)
+app.get("/api/auth/user/:userId", async (req, res) => {
+  const userId = Number(req.params.userId);
+
+  if (!Number.isInteger(userId) || userId < 1) {
+    return res.status(400).json({ message: "Neispravan ID korisnika." });
+  }
+
+  try {
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'email', 'firstName', 'lastName', 'role', 'createdAt']
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "Korisnik nije pronađen." });
+    }
+
+    return res.status(200).json({ user });
+  } catch (err) {
+    console.error("Get user error:", err);
+    return res.status(500).json({ message: "Greška pri dohvaćanju korisnika." });
+  }
+});
+
+// Ažuriraj korisnika
+app.put("/api/auth/user/:userId", async (req, res) => {
+  const userId = Number(req.params.userId);
+
+  if (!Number.isInteger(userId) || userId < 1) {
+    return res.status(400).json({ message: "Neispravan ID korisnika." });
+  }
+
+  const { email, firstName, lastName, currentPassword, newPassword } = req.body;
+
+  try {
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "Korisnik nije pronađen." });
+    }
+
+    // Ako se mijenja lozinka, provjeri staru lozinku
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: "Morate unijeti trenutnu lozinku." });
+      }
+
+      if (!verifyPassword(currentPassword, user.password)) {
+        return res.status(400).json({ message: "Trenutna lozinka nije ispravna." });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "Nova lozinka mora imati najmanje 6 znakova." });
+      }
+
+      user.password = hashPassword(newPassword);
+    }
+
+    // Ažuriraj ostale podatke
+    if (email && email !== user.email) {
+      // Provjeri da li email već postoji
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(400).json({ message: "Email adresa je već zauzeta." });
+      }
+      user.email = email;
+    }
+
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+
+    await user.save();
+
+    // Vrati ažuriranog korisnika (bez lozinke)
+    const updatedUser = await User.findByPk(userId, {
+      attributes: ['id', 'email', 'firstName', 'lastName', 'role', 'createdAt']
+    });
+
+    return res.status(200).json({
+      message: "Podaci su uspješno ažurirani.",
+      user: updatedUser
+    });
+  } catch (err) {
+    console.error("Update user error:", err);
+    return res.status(500).json({ message: "Greška pri ažuriranju korisnika." });
+  }
+});
+
+// Obriši korisnika
+app.delete("/api/auth/user/:userId", async (req, res) => {
+  const userId = Number(req.params.userId);
+
+  if (!Number.isInteger(userId) || userId < 1) {
+    return res.status(400).json({ message: "Neispravan ID korisnika." });
+  }
+
+  const { password } = req.body;
+
+  try {
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "Korisnik nije pronađen." });
+    }
+
+    // Provjeri lozinku za brisanje
+    if (!password) {
+      return res.status(400).json({ message: "Morate unijeti lozinku za brisanje računa." });
+    }
+
+    if (!verifyPassword(password, user.password)) {
+      return res.status(400).json({ message: "Lozinka nije ispravna." });
+    }
+
+    await user.destroy();
+
+    return res.status(200).json({ message: "Račun je uspješno obrisan." });
+  } catch (err) {
+    console.error("Delete user error:", err);
+    return res.status(500).json({ message: "Greška pri brisanju korisnika." });
+  }
+});
 
 // --API ROUTES--
 app.post("/api/scenarios", async (req, res) => {

@@ -1,106 +1,128 @@
 <!DOCTYPE html>
-<html lang="bs">
+<html lang="hr">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Postavke korisničkog računa</title>
+  <title>Postavke korisničkog računa - ScenarijPro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/user.css" />
 </head>
 <body>
 
   <main class="page">
-    <form class="card" novalidate> <!--bez validacije-->
+    <!-- Navigacija nazad -->
+    <a href="/html/projects.html" class="back-link">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 12H5"></path>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      Nazad na projekte
+    </a>
+
+    <form id="userForm" class="card" novalidate>
       <header class="card-header">
+        <div class="user-avatar-large" id="userAvatarLarge">U</div>
         <h1>Postavke korisničkog računa</h1>
         <hr class="rule" />
-        <p class="subtitle"><em>Upravljajte vašim korisničkim računom, sigurnosnim postavkama i notifikacijama.</em></p>
+        <p class="subtitle"><em>Upravljajte vašim korisničkim računom i sigurnosnim postavkama.</em></p>
       </header>
 
-      <!-- Podaci o korisničkom racunu -->
+      <!-- Poruke -->
+      <div id="formMessage" class="form-message hidden"></div>
+
+      <!-- Podaci o korisničkom računu -->
       <section class="section section--info">
         <h2 class="section-title">Podaci o korisničkom računu</h2>
 
         <div class="field">
-          <label for="fullName">Ime i prezime</label>
-          <input id="fullName" name="fullName" type="text" placeholder="Aldin Velic" required />
+          <label for="firstName">Ime</label>
+          <input id="firstName" name="firstName" type="text" placeholder="Vaše ime" required />
+        </div>
+
+        <div class="field">
+          <label for="lastName">Prezime</label>
+          <input id="lastName" name="lastName" type="text" placeholder="Vaše prezime" required />
         </div>
 
         <div class="field">
           <label for="email">Email adresa</label>
-          <input id="email" name="email" type="email" placeholder="velic_aldin@example.com" required />
-        </div>
-
-        <div class="field">
-          <label for="perPage">Broj elemenata po stranici (1–100)</label>
-          <input id="perPage" name="perPage" type="number" inputmode="numeric" min="1" max="100" step="1" placeholder="25" />
+          <input id="email" name="email" type="email" placeholder="vasa@email.com" required />
+          <small class="hint">Email adresa se koristi za prijavu.</small>
         </div>
       </section>
 
       <!-- Sigurnost -->
       <section class="section section--security">
-        <h2 class="section-title">Sigurnosne postavke</h2>
+        <h2 class="section-title">Promjena lozinke</h2>
 
         <div class="field">
-          <label for="newPassword">Nova šifra</label>
-          <input id="newPassword" name="newPassword" type="password" placeholder="********" />
-          <small class="hint">Ostavite prazno da zadržite postojeću šifru.</small>
+          <label for="currentPassword">Trenutna lozinka</label>
+          <input id="currentPassword" name="currentPassword" type="password" placeholder="Unesite trenutnu lozinku" />
+          <small class="hint">Obavezno ako želite promijeniti lozinku.</small>
         </div>
 
-        <div class="field field--checkbox">
-          <input id="twofa" name="twofa" type="checkbox" />
-          <label for="twofa">Omogući Two-Factor Authentication (2FA)</label>
+        <div class="field">
+          <label for="newPassword">Nova lozinka</label>
+          <input id="newPassword" name="newPassword" type="password" placeholder="Minimalno 6 znakova" />
+        </div>
+
+        <div class="field">
+          <label for="confirmNewPassword">Potvrda nove lozinke</label>
+          <input id="confirmNewPassword" name="confirmNewPassword" type="password" placeholder="Ponovite novu lozinku" />
         </div>
       </section>
 
-      <!-- Notifikacije -->
+      <!-- Informacije o računu -->
       <section class="section section--notifications">
-        <h2 class="section-title">Notifikacije</h2>
-
-        <fieldset class="fieldset"> <!--nesto sto ide zajedno-->
-          <legend>Preferirani način komunikacije</legend>
-          <label class="radio"> <!--label mogu pisati i ovako bez for i id atributa potrebnih-->
-            <input type="radio" name="contact" value="email" checked />
-            <span>Email</span>
-          </label>
-          <label class="radio">
-            <input type="radio" name="contact" value="sms" />
-            <span>SMS (tekst)</span>
-          </label>
-          <label class="radio">
-            <input type="radio" name="contact" value="none" />
-            <span>None</span>
-          </label>
-        </fieldset>
+        <h2 class="section-title">Informacije o računu</h2>
 
         <div class="field">
-          <label for="freq">Notification frequency</label>
-          <select id="freq" name="freq">
-            <option value="daily" selected>Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-            <option value="never">Never</option>
-          </select>
+          <label>Status računa</label>
+          <p class="field-value" id="accountStatus">Aktivan</p>
+        </div>
+
+        <div class="field">
+          <label>Datum registracije</label>
+          <p class="field-value" id="registrationDate">-</p>
+        </div>
+
+        <div class="field">
+          <label>Tip članstva</label>
+          <p class="field-value" id="membershipType">Član</p>
         </div>
       </section>
 
       <footer class="card-footer">
-        <button type="submit" class="primary">Spasi promjene</button>
+        <button type="submit" class="primary" id="saveBtn">Spasi promjene</button>
       </footer>
+
+      <!-- Opasna zona -->
+      <section class="section section--danger">
+        <h2 class="section-title">Opasna zona</h2>
+        <p class="danger-text">Brisanje računa je trajna akcija i ne može se poništiti.</p>
+        <button type="button" class="danger-btn" id="deleteAccountBtn">Obriši moj račun</button>
+      </section>
     </form>
+
+    <!-- Modal za potvrdu brisanja -->
+    <div id="deleteModal" class="modal hidden">
+      <div class="modal-content">
+        <h2 class="modal-title">Obriši račun</h2>
+        <p class="modal-text">Da li ste sigurni da želite obrisati svoj račun? Ova akcija je trajna i svi vaši podaci će biti izgubljeni.</p>
+        <div class="field">
+          <label for="deleteConfirmPassword">Unesite lozinku za potvrdu</label>
+          <input id="deleteConfirmPassword" type="password" placeholder="Vaša lozinka" />
+        </div>
+        <p id="deleteError" class="error-text"></p>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" id="cancelDeleteBtn">Odustani</button>
+          <button type="button" class="danger-btn" id="confirmDeleteBtn">Obriši trajno</button>
+        </div>
+      </div>
+    </div>
   </main>
 
-  <script>
-    // Minimalno: ova forma trenutno nema backend spremanje.
-    // Klik na "Spasi promjene" vraća korisnika na početnu stranicu.
-    document.addEventListener("DOMContentLoaded", () => {
-      const form = document.querySelector("form.card");
-      if (!form) return;
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        window.location.href = "/html/projects.html";
-      });
-    });
-  </script>
+  <script src="/js/user.js"></script>
 
 </body>
 </html>

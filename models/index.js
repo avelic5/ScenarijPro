@@ -1,18 +1,23 @@
 /*
   Sequelize modeli za MySQL bazu podataka
-  Baza: wt26
-  User: root
-  Password: password
  */
+
+require('dotenv').config();
 
 const { Sequelize, DataTypes } = require('sequelize');
 
 // Konfiguracija baze podataka
-const sequelize = new Sequelize('wt26', 'root', 'password', {
-  host: 'localhost',
+const sequelize = new Sequelize(
+  process.env.DB_NAME || 'wt26',
+  process.env.DB_USER || 'root',
+  process.env.DB_PASSWORD || 'password',
+  {
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
   dialect: 'mysql',
   logging: process.env.NODE_ENV === 'test' ? false : console.log,
-});
+  }
+);
 
 
 // MODEL: Scenario
@@ -173,6 +178,50 @@ Delta.belongsTo(Scenario, { foreignKey: 'scenarioId' });
 Scenario.hasMany(Checkpoint, { foreignKey: 'scenarioId', onDelete: 'CASCADE' });
 Checkpoint.belongsTo(Scenario, { foreignKey: 'scenarioId' });
 
+
+// MODEL: User
+
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    validate: {
+      isEmail: true,
+    },
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  firstName: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  lastName: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  role: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'user',
+  },
+  createdAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW,
+  },
+}, {
+  tableName: 'User',
+  timestamps: false,
+});
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -180,4 +229,5 @@ module.exports = {
   Line,
   Delta,
   Checkpoint,
+  User,
 };

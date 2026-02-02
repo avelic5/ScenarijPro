@@ -153,16 +153,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Helper funkcije
     function clearMessages() {
         loginError.textContent = '';
+        loginError.classList.remove('visible');
         registerError.textContent = '';
+        registerError.classList.remove('visible');
         registerSuccess.textContent = '';
+        registerSuccess.classList.remove('visible');
     }
 
     function showError(element, message) {
         element.textContent = message;
+        element.classList.add('visible');
     }
 
     function showSuccess(element, message) {
         element.textContent = message;
+        element.classList.add('visible');
     }
 
     // Provjeri da li je korisnik već prijavljen

@@ -2,20 +2,18 @@
 
 **ScenarijPro** is a professional web app for collaborative real‑time writing of film and TV screenplays. It supports multi‑user editing with a robust locking system, change tracking via deltas, and versioning through checkpoints.
 
-> 🎓 *Project developed for the Web Technologies course at the Faculty of Electrical Engineering Sarajevo.*
+
 
 ---
 
-## 📖 Table of Contents
+##  Table of Contents
 
 - [Key features](#-key-features)
-- [Screenplay terminology](#-screenplay-terminology)
+- [Screenplay terminology](#screenplay-terminology)
 - [Technologies](#️-technologies)
-- [System architecture](#-system-architecture)
 - [API documentation](#-api-documentation)
-- [Frontend modules](#-frontend-modules)
-- [Testing](#-testing)
-- [Author](#-author)
+- [Testing](#testing)
+- [Author](#author)
 
 ---
 
@@ -52,7 +50,7 @@
 
 ---
 
-## 📚 Screenplay terminology
+## Screenplay terminology
 
 | Term | Definition |
 |------|------------|
@@ -92,58 +90,6 @@
 | Chai | Assertion library |
 
 ---
-
-## 🏗️ System architecture
-
-```
-ScenarijPro/
-├── index.js                    # Express server + API routes (1400+ lines)
-├── package.json                # Dependencies and scripts
-│
-├── models/
-│   └── index.js                # Sequelize models
-│       ├── Scenario            # Scenario (id, title)
-│       ├── Line                # Line (lineId, text, nextLineId, scenarioId)
-│       ├── Delta               # Change (type, content, timestamp)
-│       ├── Checkpoint          # Version (scenarioId, timestamp)
-│       └── User                # User
-│
-├── data/                       # Runtime data (locks)
-│   ├── locks.json              # Locked lines
-│   └── character-locks.json    # Locked characters
-│
-├── public/
-│   ├── html/
-│   │   ├── login.html          # Login/Register
-│   │   ├── projects.html       # Projects dashboard
-│   │   ├── writing.html        # Main scenario editor
-│   │   ├── statistics.html     # Writing stats
-│   │   ├── settings.html       # User settings
-│   │   └── user.html           # User profile
-│   │
-│   ├── css/                    # Page styles
-│   │
-│   └── js/
-│       ├── EditorTeksta.js     #  Scenario text analysis module
-│       ├── PoziviAjaxFetch.js  # 📦AJAX communication module
-│       ├── editor.js           # Editor integration with modules
-│       ├── login.js            # Login/Register logic
-│       ├── projects.js         # Projects management
-│       └── ...
-│
-└── tests/                      # Jest tests
-    ├── characterLock.test.js
-    ├── checkpoint.test.js
-    ├── deltas.get.test.js
-    ├── lines.delete.test.js
-    ├── putUpdateLine.test.js
-    ├── scenario.get.test.js
-    ├── scenarios.post.test.js
-    └── testHelper.js
-```
-
----
-
 
 ## 📡 API documentation
 
@@ -205,42 +151,7 @@ ScenarijPro/
 
 ---
 
-## 🧩 Frontend modules
-
-### EditorTeksta.js
-
-Module for analyzing and manipulating screenplay text inside a `contenteditable` element.
-
-```javascript
-let editor = EditorTeksta(divElement);
-
-// Methods:
-editor.dajBrojRijeci();        // {ukupno, boldiranih, italic}
-editor.dajUloge();             // ["ALICE", "BOB", ...]
-editor.pogresnaUloga();        // Detect likely misspelled roles
-editor.brojLinijaTeksta(uloga);// Number of lines for a role
-editor.scenarijUloge(uloga);   // Detailed reply analysis
-editor.grupisiUloge();         // Role groups per scene
-editor.formatirajTekst(cmd);   // "bold", "italic", "underline"
-```
-
-### PoziviAjaxFetch.js
-
-IIFE module for communication with the backend API.
-
-```javascript
-PoziviAjax.postScenario(title, callback);
-PoziviAjax.lockLine(scenarioId, lineId, userId, callback);
-PoziviAjax.updateLine(scenarioId, lineId, userId, newText, callback);
-PoziviAjax.lockCharacter(scenarioId, characterName, userId, callback);
-PoziviAjax.updateCharacter(scenarioId, userId, oldName, newName, callback);
-PoziviAjax.getDeltas(scenarioId, since, callback);
-PoziviAjax.getScenario(scenarioId, callback);
-```
-
----
-
-## 🧪 Testing
+##  Testing
 
 ```bash
 # Run all tests
@@ -254,17 +165,17 @@ npm test -- --verbose
 ```
 
 ### Test coverage
-- ✅ Scenario creation
-- ✅ Line locking
-- ✅ Line updates (with wrapping)
-- ✅ Line deletion
-- ✅ Character locking and rename
-- ✅ Delta tracking
-- ✅ Checkpoint creation and restore
+- Scenario creation
+- Line locking
+- Line updates (with wrapping)
+- Line deletion
+- Character locking and rename
+- Delta tracking
+- Checkpoint creation and restore
 
 ---
 
-## 👤 Author
+##  Author
 
 **Aldin Velić**
 

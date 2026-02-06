@@ -73,7 +73,7 @@
 | Node.js | 18+ | Runtime environment |
 | Express.js | 5.x | Web framework |
 | Sequelize | 6.x | ORM for database |
-| MySQL | 8.x | Relational database |
+| PostgreSQL | 15+ | Relational database |
 
 ### Frontend
 | Technology | Purpose |

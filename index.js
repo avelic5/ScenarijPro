@@ -42,49 +42,16 @@ const CHAR_LOCKS_FILE = path.join(DATA_DIR, "character-locks.json");
 async function initializeDatabase() {
   try {
     await sequelize.authenticate();
-    console.log("Uspješno povezano sa MySQL bazom podataka.");
-    await sequelize.sync({ force: true });
-    console.log("Tabele su uspješno kreirane.");
+    console.log("Uspješno povezano sa PostgreSQL bazom podataka.");
 
-    // Početni podaci za scenarij
-    const initialScenario = {
-      id: 1,
-      title: "Potraga za izgubljenim ključem",
-      content: [
-        { lineId: 1, nextLineId: 2, text: "NARATOR" },
-        { lineId: 2, nextLineId: 3, text: "Sunce je polako zalazilo nad starim gradom." },
-        { lineId: 4, nextLineId: 5, text: "Jesi li siguran da je ključ ostao u biblioteci?" },
-        { lineId: 5, nextLineId: 6, text: "BOB" },
-        { lineId: 6, nextLineId: 7, text: "To je posljednje mjesto gdje sam ga vidio prije nego što je pala noć." },
-        { lineId: 7, nextLineId: 8, text: "ALICIA" },
-        { lineId: 8, nextLineId: 9, text: "Moramo požuriti prije nego što čuvar zaključa glavna vrata." },
-        { lineId: 9, nextLineId: 10, text: "BOB" },
-        { lineId: 10, nextLineId: 11, text: "Čekaj, čuješ li taj zvuk iza polica?" },
-        { lineId: 11, nextLineId: 12, text: "NARATOR" },
-        { lineId: 12, nextLineId: null, text: "Iz sjene se polako pojavila nepoznata figura." },
-        { lineId: 3, nextLineId: 13, text: "riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ" },
-        { lineId: 13, nextLineId: 14, text: "riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ riječ" },
-        { lineId: 14, nextLineId: 4, text: "riječ riječ riječ riječ riječ" },
-      ],
-    };
-
-    // Kreiraj scenarij
-    const scenario = await Scenario.create({
-      id: initialScenario.id,
-      title: initialScenario.title,
-    });
-
-    // Kreiraj sve linije za scenarij
-    const linesToCreate = initialScenario.content.map((line) => ({
-      lineId: line.lineId,
-      nextLineId: line.nextLineId,
-      text: line.text,
-      scenarioId: scenario.id,
-    }));
-
-    await Line.bulkCreate(linesToCreate);
-    console.log(`Scenarij "${initialScenario.title}" sa ${linesToCreate.length} linija uspješno kreiran.`);
-
+    const shouldForceSync = process.env.DB_SYNC_FORCE === "true";
+    await sequelize.sync({ force: shouldForceSync });
+    console.log(
+      shouldForceSync
+        ? "Tabele su uspješno kreirane (force sync)."
+        : "Tabele su uspješno provjerene/sinhronizovane."
+    );
+    return;
   } catch (error) {
     console.error("Greška prilikom povezivanja sa bazom:", error);
     throw error;
@@ -1423,7 +1390,8 @@ function escapeRegex(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-initializeDatabase()
+if (require.main === module) {
+  initializeDatabase()
     .then(() => {
       app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
@@ -1433,6 +1401,7 @@ initializeDatabase()
       console.error("Greška prilikom inicijalizacije baze:", err);
       process.exit(1);
     });
+}
 
 module.exports = app;
 module.exports.sequelize = sequelize;

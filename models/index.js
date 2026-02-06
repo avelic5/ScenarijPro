@@ -1,23 +1,65 @@
 /*
-  Sequelize modeli za MySQL bazu podataka
+  Sequelize modeli za PostgreSQL bazu podataka
  */
 
 require('dotenv').config();
 
 const { Sequelize, DataTypes } = require('sequelize');
 
-// Konfiguracija baze podataka
-const sequelize = new Sequelize(
-  process.env.DB_NAME || 'wt26',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || 'password',
-  {
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
-  dialect: 'mysql',
-  logging: process.env.NODE_ENV === 'test' ? false : console.log,
-  }
-);
+function parseBooleanEnv(value) {
+  if (typeof value !== 'string') return undefined;
+  const v = value.trim().toLowerCase();
+  if (v === 'true' || v === '1' || v === 'yes') return true;
+  if (v === 'false' || v === '0' || v === 'no') return false;
+  return undefined;
+}
+
+function cleanDatabaseUrl(url) {
+  if (typeof url !== 'string') return '';
+  const withoutSslmode = url.replace(/[?&]sslmode=[^&]*/gi, '');
+  return withoutSslmode.replace(/[?&]$/, '');
+}
+
+function shouldUseSsl(databaseUrl) {
+  const explicit = parseBooleanEnv(process.env.DB_SSL);
+  if (explicit !== undefined) return explicit;
+  return /supabase\.com/i.test(databaseUrl || '');
+}
+
+const logging = process.env.NODE_ENV === 'test' ? false : console.log;
+
+let sequelize;
+const databaseUrl = process.env.DATABASE_URL;
+const useSsl = shouldUseSsl(databaseUrl);
+const dialectOptions = useSsl
+  ? {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+    }
+  : {};
+
+if (databaseUrl) {
+  sequelize = new Sequelize(cleanDatabaseUrl(databaseUrl), {
+    dialect: 'postgres',
+    logging,
+    dialectOptions,
+  });
+} else {
+  sequelize = new Sequelize(
+    process.env.DB_NAME || 'postgres',
+    process.env.DB_USER || 'postgres',
+    process.env.DB_PASSWORD || 'password',
+    {
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 5432,
+      dialect: 'postgres',
+      logging,
+      dialectOptions,
+    }
+  );
+}
 
 
 // MODEL: Scenario
@@ -33,8 +75,9 @@ const Scenario = sequelize.define('Scenario', {
     defaultValue: 'Neimenovani scenarij',
   },
 }, {
-  tableName: 'Scenario',
+  tableName: 'scenarios',
   timestamps: false,
+  underscored: true,
 });
 
 
@@ -68,12 +111,13 @@ const Line = sequelize.define('Line', {
     },
   },
 }, {
-  tableName: 'Line',
+  tableName: 'lines',
   timestamps: false,
+  underscored: true,
   indexes: [
     {
       unique: true,
-      fields: ['scenarioId', 'lineId'],
+      fields: ['scenario_id', 'line_id'],
       name: 'unique_line_per_scenario',
     },
   ],
@@ -133,8 +177,9 @@ const Delta = sequelize.define('Delta', {
     // Unix vrijeme promjene u sekundama
   },
 }, {
-  tableName: 'Delta',
+  tableName: 'deltas',
   timestamps: false,
+  underscored: true,
 });
 
 
@@ -160,8 +205,9 @@ const Checkpoint = sequelize.define('Checkpoint', {
     // Unix vrijeme trenutka kreiranja checkpointa
   },
 }, {
-  tableName: 'Checkpoint',
+  tableName: 'checkpoints',
   timestamps: false,
+  underscored: true,
 });
 
 // RELACIJE
@@ -218,8 +264,9 @@ const User = sequelize.define('User', {
     defaultValue: DataTypes.NOW,
   },
 }, {
-  tableName: 'User',
+  tableName: 'users',
   timestamps: false,
+  underscored: true,
 });
 
 module.exports = {

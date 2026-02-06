@@ -2,6 +2,7 @@
 
 **ScenarijPro** is a professional web app for collaborative real‑time writing of film and TV screenplays. It supports multi‑user editing with a robust locking system, change tracking via deltas, and versioning through checkpoints.
 
+ **Live demo:** [https://scenarijpro.onrender.com](https://scenarijpro.onrender.com)
 
 
 ---
